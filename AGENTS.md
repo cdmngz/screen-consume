@@ -66,6 +66,7 @@ Run checks proportional to the change:
 
 - Keep dependency changes narrow and human-reviewed; never enable automatic merging.
 - Review release notes, advisories, and the resolved graph. Coordinate Gradle, Android Gradle Plugin, Kotlin, KSP, and Compose tooling upgrades.
+- Room is intentionally pinned to 2.7.2 because 2.8.4 fails while reading committed schema JSON through KSP. Do not remove the pin until a clean build with schema export enabled succeeds.
 - Keep the wrapper distribution checksum synchronized with Gradle's official checksum. Do not casually generate dependency locks or verification metadata; introduce them only in a dedicated reviewed change.
 - GitHub Actions are not required for Dependabot. Any future workflow must have minimal explicit `permissions`, pin third-party actions to full commit SHAs, avoid secrets for untrusted code, and never sign or publish using the local identity.
 

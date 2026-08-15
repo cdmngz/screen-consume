@@ -14,9 +14,9 @@ Prefer a private GitHub security advisory for this repository. Do not include pe
 
 - The release variant is configured with `android:debuggable=false`, code shrinking, resource shrinking, and the optimized default ProGuard rules.
 - Compose tooling is a `debugImplementation`; no preview activity is declared in the application manifest.
-- The manifest requests only `android.permission.PACKAGE_USAGE_STATS`. The app does not request `INTERNET` or broad file access. WorkManager's unused network-state and foreground-service permissions are explicitly removed during manifest merging.
-- Android automatic application backup is disabled with `android:allowBackup="false"`.
-- The only exported application component is the launcher `MainActivity`, required for launching from the home screen. It exposes no custom deep link or intent API.
+- The app declares `android.permission.PACKAGE_USAGE_STATS`. WorkManager adds `WAKE_LOCK` and `RECEIVE_BOOT_COMPLETED` so periodic aggregation can run and be rescheduled after reboot; AndroidX also adds an app-scoped signature permission for non-exported dynamic receivers. The app does not request `INTERNET` or broad file access. WorkManager's unused network-state and foreground-service permissions are explicitly removed during manifest merging.
+- Android automatic application backup is disabled with `android:allowBackup="false"`, legacy full-backup exclusions, and Android 12+ cloud/device-transfer exclusions.
+- The only app-defined exported component is the launcher `MainActivity`, required for launching from the home screen. It exposes no custom deep link or intent API. Merged AndroidX manifests also expose WorkManager's job service behind the system-only `BIND_JOB_SERVICE` permission and diagnostics/profile receivers behind the system-only `DUMP` permission; ordinary applications cannot invoke them.
 - Room and DataStore live in the application's private Android sandbox. No content provider, WebView, native/JNI library, dynamic code loader, shell execution, APK installer, accessibility service, or external network service is implemented.
 - Raw `UsageEvents`, exact timestamps, and individual foreground intervals are held only while aggregating. The persisted records are daily per-app aggregates.
 - Restore reads only a document explicitly selected through the system picker, applies a 25 MB input limit and 250,000-record limit, validates field lengths and usage totals, and writes through a Room transaction.

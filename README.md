@@ -48,6 +48,7 @@ ScreenConsume is designed so the core experience works entirely on the device:
 - No account or backend is required.
 - No Firebase, analytics, telemetry, advertising, or tracking SDK is included.
 - The application does not request Android's `INTERNET` permission.
+- WorkManager contributes wake-lock and boot-completed permissions for periodic aggregation and rescheduling; neither provides network access or user-data access.
 - Raw usage events and exact event timestamps are processed in memory and are not persisted.
 - Compact daily aggregates are stored in the app's private Room database with no application-level expiration.
 - Android automatic application backup is disabled.
@@ -155,8 +156,6 @@ To build the hardened release variant:
 ScreenConsume is an early proof of concept, not a production service or an official Digital Wellbeing proposal. The local collection, aggregation, historical dashboard, export, restore, encrypted backup, background work, and core tests are implemented. Visual design, accessibility review, device compatibility testing, richer charts, data-deletion controls, migration strategy, and potential opt-in integrations need further work.
 
 The repository currently has no continuous-integration workflow. Dependabot is configured for weekly, human-reviewed Gradle dependency updates.
-
-**Known build issue:** the current dependency set can fail during Room's KSP schema-export step with a `kotlinx.serialization` binary incompatibility. The Kotlin/KSP/Room toolchain needs to be aligned before publishing a build or presenting the repository as build-clean.
 
 ## Limitations
 
