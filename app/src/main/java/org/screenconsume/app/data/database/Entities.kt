@@ -37,3 +37,15 @@ data class AppUsageRow(
 
 data class DayUsageRow(val date: String, val usageSeconds: Long)
 
+data class PortableUsageRow(
+    val date: String,
+    val packageName: String,
+    val displayName: String,
+    val category: String?,
+    val usageSeconds: Long,
+    val launchCount: Int,
+    val morningUsageSeconds: Long,
+    val afternoonUsageSeconds: Long,
+    val eveningUsageSeconds: Long,
+    val nightUsageSeconds: Long,
+)

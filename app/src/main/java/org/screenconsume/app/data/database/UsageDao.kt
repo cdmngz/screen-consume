@@ -17,6 +17,19 @@ interface UsageDao {
     @Query("DELETE FROM daily_app_usage WHERE date = :date")
     suspend fun deleteDate(date: String)
 
+    @Query("SELECT MIN(date) FROM daily_app_usage")
+    fun observeEarliestDate(): Flow<String?>
+
+    @Query("""
+        SELECT d.date, a.packageName, a.displayName, a.category,
+               d.usageSeconds, d.launchCount, d.morningUsageSeconds,
+               d.afternoonUsageSeconds, d.eveningUsageSeconds, d.nightUsageSeconds
+        FROM daily_app_usage d JOIN apps a ON a.id = d.appId
+        WHERE d.date BETWEEN :start AND :end
+        ORDER BY d.date, a.packageName
+    """)
+    suspend fun portableRows(start: String, end: String): List<PortableUsageRow>
+
     @Query("""
         SELECT a.packageName, a.displayName, a.category,
                SUM(d.usageSeconds) AS usageSeconds, SUM(d.launchCount) AS launchCount
@@ -32,4 +45,3 @@ interface UsageDao {
     """)
     fun observeDays(start: String, end: String): Flow<List<DayUsageRow>>
 }
-

@@ -1,48 +1,177 @@
 # ScreenConsume
 
-ScreenConsume is a privacy-first, open-source Android screen-time analytics app. It reads Android's Usage Access data, converts events into daily aggregates, and stores only those aggregates locally. The MVP has dashboards for today, seven days, and 30 days, plus app, trend, and settings views.
+ScreenConsume is a privacy-first Android Digital Wellbeing proof of concept. It explores how richer long-term usage insights, historical comparisons, and user-controlled data portability could complement the digital wellbeing experience on Android.
 
-## Privacy by design
+The project is backed by a working, fully native Android implementation built with Kotlin and Jetpack Compose. It is intended as a concrete design and engineering exploration—not as a competitor to, or replacement for, Android's Digital Wellbeing features.
 
-- Usage data stays in an on-device Room database.
-- No account, backend, Firebase, analytics SDK, ads, or Internet permission.
-- Exact app-open timestamps and individual interactions are processed in memory and are never persisted.
-- Data will leave the device only after a user explicitly exports it or enables a future connection.
+> **Independent project:** ScreenConsume is not affiliated with, endorsed by, sponsored by, or an official product of Google, Android, or the Digital Wellbeing team. Android, Google, and Digital Wellbeing are trademarks of their respective owners.
 
-## Platform limitations
+## The problem being explored
 
-Usage Access is special access granted from Android Settings, not a runtime permission. Android/OEM event retention and delivery can vary. ScreenConsume uses public `UsageEvents` activity resume/pause events for foreground intervals. “Launches” means distinct foreground resumes observed for a package inside the aggregation window; it is not a process-launch count. ScreenConsume does **not** store notification counts or unlock counts in the MVP: notification counts are not reliably available from UsageStats APIs, and device unlock events vary across Android versions and OEMs. App categories come from `ApplicationInfo` when supplied by the installed app and may be absent.
+Digital wellbeing tools can help people understand and adjust their relationship with technology. ScreenConsume began with a narrower question: what additional value could emerge if people had access to more durable, inspectable, and portable summaries of their own app usage?
 
-An unfinished foreground session at the end of a collection window is capped at that window. A missing start event cannot be reconstructed and is not silently estimated.
+The proof of concept explores several ideas:
+
+- Historical views beyond a short recent window, including calendar months, years, all-time history, and custom ranges.
+- Previous-period comparisons and average daily usage derived from the same underlying daily records.
+- App, category, launch-count, daily-trend, and broad time-of-day perspectives.
+- Indefinite local retention of compact daily aggregates, controlled by the device owner.
+- Transparent CSV/JSON export and restorable encrypted backups.
+- A local-first architecture that does not require an account, backend, or network permission.
+
+These are proposed concepts demonstrated by this repository. They should not be interpreted as statements about the current capabilities, priorities, or future plans of Google's Digital Wellbeing product.
+
+## What the prototype demonstrates
+
+The current app includes:
+
+- Dashboard ranges for today, seven days, 30 days, calendar month, calendar year, all time, and custom dates.
+- Total and average screen time, previous-period comparison, app totals, observed launches, daily trends, and category summaries where Android provides a category.
+- Daily per-app aggregation with morning, afternoon, evening, and night totals.
+- Periodic, idempotent reaggregation of recent days with collection-health status.
+- Plaintext CSV and JSON export for a selected date range.
+- Idempotent JSON restore with input validation and resource limits.
+- Password-encrypted full-history backup and restore.
+
+## Screenshots
+
+Screenshots are not yet included. Before a public release, add captures made with synthetic or non-personal usage data.
+
+| Dashboard | Apps | Trends | Data & Integrations |
+| --- | --- | --- | --- |
+| _Screenshot pending_ | _Screenshot pending_ | _Screenshot pending_ | _Screenshot pending_ |
+
+## Privacy-first and local-first
+
+ScreenConsume is designed so the core experience works entirely on the device:
+
+- No account or backend is required.
+- No Firebase, analytics, telemetry, advertising, or tracking SDK is included.
+- The application does not request Android's `INTERNET` permission.
+- Raw usage events and exact event timestamps are processed in memory and are not persisted.
+- Compact daily aggregates are stored in the app's private Room database with no application-level expiration.
+- Android automatic application backup is disabled.
+- Data leaves the app's private storage only when the user explicitly chooses an export or backup destination.
+
+See [PRIVACY.md](PRIVACY.md) for the implementation-specific data description and [SECURITY.md](SECURITY.md) for security boundaries and limitations.
+
+## Usage Access
+
+ScreenConsume requires Android's Usage Access special access (`android.permission.PACKAGE_USAGE_STATS`). The user grants it explicitly from Android Settings; it is not a normal runtime permission dialog.
+
+Usage Access is needed to read `UsageEvents` activity resume, pause, and stop events for apps used on the device. ScreenConsume processes those events into daily summaries. Without Usage Access, the app shows an explanatory empty state and cannot collect new usage information.
+
+Because Usage Access exposes package names and event timestamps retained by Android, it is sensitive. It can be revoked at any time in Android Settings. Revoking access stops new collection but does not delete aggregates already stored.
+
+## Data model
+
+For an app observed in usage events, ScreenConsume stores:
+
+- Package name, display label, and optional Android-provided category.
+- Calendar date.
+- Total foreground usage seconds.
+- Count of observed foreground-resume events.
+- Usage seconds grouped into morning, afternoon, evening, and night.
+
+DataStore separately holds onboarding completion and the timestamp of the last successful aggregation. The app does not store individual interaction records, exact app-open timestamps, notification contents/counts, unlock counts, screen contents, typed text, location, contacts, messages, calls, clipboard content, or device identifiers.
+
+“Launch count” means foreground-resume events observed in the aggregation window, not operating-system process launches. Android and device-manufacturer retention behavior can produce missing events or incomplete history; ScreenConsume does not silently invent missing data.
+
+## Export and encrypted backup
+
+Exports use Android's system document picker, so the app needs no broad storage permission.
+
+- CSV and JSON exports contain the selected date range in plaintext.
+- JSON restore upserts records by app/date rather than creating duplicates.
+- Encrypted `.scb` backups contain all stored history and use AES-256-GCM with a key derived from the user's password using PBKDF2-HMAC-SHA256.
+- Restore input is limited to 25 MB and 250,000 records, with field-length and usage-value validation.
+
+A selected document provider may be cloud-backed. In that case, the user's explicit choice of destination can cause the file to leave the device. ScreenConsume itself has no network client and performs no automatic upload. Exported files remain sensitive and are outside the app's control after creation.
+
+## Security considerations
+
+Usage history can reveal routines and interests. The Room database is not application-level encrypted; it relies on Android's application sandbox, device lock, and platform storage protections. Root access, a compromised operating system, privileged malware, physical access to an unlocked device, or disclosure of an exported file are outside the app's protection boundary.
+
+The release variant is configured as non-debuggable, minified, and resource-shrunk. Compose tooling is debug-only, Android automatic backup is disabled, and the source manifest declares no network permission. A final distributable APK should still be audited after signing because source configuration alone does not prove the contents of a built artifact.
+
+Please report security issues using the process in [SECURITY.md](SECURITY.md). Do not place personal usage data or secrets in a public issue.
 
 ## Architecture
 
-The single `app` module keeps platform usage reads, Room persistence, repositories, pure domain analytics, UI, workers, and sync abstractions in separate packages. A small manual application container avoids dependency-injection framework overhead. `DailyAggregationWorker` reprocesses the last three days every six hours; a transaction replaces each day's records, and the `(date, appId)` primary key makes retries idempotent.
+ScreenConsume is a single-module native Android application using Kotlin, Jetpack Compose/Material 3, Room, Coroutines and Flow, ViewModel, WorkManager, and DataStore. A small manual `AppContainer` keeps dependency wiring explicit.
 
-`SyncProvider` is an intentionally unimplemented extension point for future user-authorized destinations such as Google Sheets. CSV/JSON exports are also deferred and kept conceptually separate from persistent connections.
+```text
+app/src/main/java/org/screenconsume/app/
+├── data/
+│   ├── usage/       Android UsageStatsManager/UsageEvents access
+│   ├── database/    Room entities, DAO, and database
+│   ├── repository/  Collection, persistence, analytics queries, export/restore
+│   ├── export/      CSV, JSON, validation, and encrypted backup primitives
+│   ├── preferences/ DataStore preferences
+│   └── sync/        Future integration interface; no provider implemented
+├── domain/
+│   ├── model/       Framework-light models and date ranges
+│   └── analytics/   Aggregation and derived calculations
+├── ui/              Compose UI and ViewModel
+└── workers/         Periodic recent-day aggregation
+```
 
-## Setup
+The worker reprocesses the current and previous two days every six hours. A transaction replaces each date's snapshot, and the `(date, appId)` key prevents duplicate daily records. Dashboards derive results from these stored aggregates rather than persisting redundant analytics.
 
-1. Install Android Studio with Android SDK 36 and Java 17.
-2. Open this repository and let Gradle sync.
-3. Run the `app` configuration on an Android 8.0 (API 26) or newer device/emulator.
-4. In ScreenConsume, tap **Grant Usage Access**, enable ScreenConsume, then return to the app.
+## Build and run
 
-Command-line checks:
+Prerequisites:
+
+- Android Studio with Android SDK 36 and current SDK build tools.
+- Java 17.
+- An Android 8.0/API 26 or newer device or emulator.
+
+Open the repository in Android Studio and allow Gradle to sync, or use the checked-in wrapper:
 
 ```sh
 ./gradlew testDebugUnitTest
+./gradlew lintDebug
 ./gradlew assembleDebug
 ```
 
-Instrumented Room tests require a connected device or emulator:
+The debug APK is generated under `app/build/outputs/apk/debug/`. Install it from Android Studio or with ADB, then launch ScreenConsume and select **Grant Usage Access**.
+
+Room instrumentation tests require a connected device or emulator:
 
 ```sh
 ./gradlew connectedDebugAndroidTest
 ```
 
-## Development status
+To build the hardened release variant:
 
-Milestone 1 MVP. Collection, local daily persistence, period dashboards, per-app usage, a simple daily trend, background aggregation, privacy messaging, and domain tests are present. Custom ranges, monthly/yearly views, exports, richer charts, and opt-in integrations remain future work.
+```sh
+./gradlew testDebugUnitTest lintRelease assembleRelease
+```
 
-No license has been selected yet.
+`assembleRelease` currently produces `app/build/outputs/apk/release/app-release-unsigned.apk`. A maintainer must sign it with the project's established release identity before installation or distribution. Signing credentials and private keys must never be committed.
+
+## Current status
+
+ScreenConsume is an early proof of concept, not a production service or an official Digital Wellbeing proposal. The local collection, aggregation, historical dashboard, export, restore, encrypted backup, background work, and core tests are implemented. Visual design, accessibility review, device compatibility testing, richer charts, data-deletion controls, migration strategy, and potential opt-in integrations need further work.
+
+The repository currently has no continuous-integration workflow. Dependabot is configured for weekly, human-reviewed Gradle dependency updates.
+
+**Known build issue:** the current dependency set can fail during Room's KSP schema-export step with a `kotlinx.serialization` binary incompatibility. The Kotlin/KSP/Room toolchain needs to be aligned before publishing a build or presenting the repository as build-clean.
+
+## Limitations
+
+- Available history is limited by Android/OEM event retention and by how often the app can aggregate while Usage Access remains granted.
+- A new installation cannot reconstruct events Android no longer retains.
+- Background execution timing is controlled by WorkManager and the operating system; six hours is a requested interval, not an exact schedule.
+- Foreground events can be missing, duplicated, delayed, or behave differently across Android versions and manufacturers.
+- An unfinished foreground session is capped at the collection-window boundary; a missing start event is not estimated.
+- App categories are optional metadata supplied by Android and may be absent or broad.
+- The application database is not independently encrypted.
+- Plaintext exports must be protected by the user after creation.
+- Importing restores records but does not prove their origin or correctness.
+- There is no implemented online synchronization provider.
+- The project has not yet undergone broad accessibility, OEM, performance, or independent security testing.
+
+## License
+
+No open-source license has been selected yet. Until a license is added, the source is publicly viewable if published but is not automatically granted open-source reuse rights. Choose and add a `LICENSE` file before describing the project as open source or inviting redistribution and contributions.
