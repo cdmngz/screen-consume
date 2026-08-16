@@ -51,4 +51,3 @@ data class DateRange(val start: LocalDate, val endInclusive: LocalDate) {
             DateRange(today.minusDays(days - 1), today)
     }
 }
-

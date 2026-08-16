@@ -44,4 +44,12 @@ interface UsageDao {
         WHERE date BETWEEN :start AND :end GROUP BY date ORDER BY date
     """)
     fun observeDays(start: String, end: String): Flow<List<DayUsageRow>>
+
+    @Query("""
+        SELECT d.date, d.usageSeconds FROM daily_app_usage d
+        JOIN apps a ON a.id = d.appId
+        WHERE a.packageName = :packageName AND d.date BETWEEN :start AND :end
+        ORDER BY d.date
+    """)
+    fun observeAppDays(packageName: String, start: String, end: String): Flow<List<DayUsageRow>>
 }

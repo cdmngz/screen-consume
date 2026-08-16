@@ -1,14 +1,14 @@
-# ScreenConsume
+# Screen Consume
 
-ScreenConsume is a privacy-first Android Digital Wellbeing proof of concept. It explores how richer long-term usage insights, historical comparisons, and user-controlled data portability could complement the digital wellbeing experience on Android.
+Screen Consume is a privacy-first Android Digital Wellbeing proof of concept. It explores how richer long-term usage insights, historical comparisons, and user-controlled data portability could complement the digital wellbeing experience on Android.
 
 The project is backed by a working, fully native Android implementation built with Kotlin and Jetpack Compose. It is intended as a concrete design and engineering exploration—not as a competitor to, or replacement for, Android's Digital Wellbeing features.
 
-> **Independent project:** ScreenConsume is not affiliated with, endorsed by, sponsored by, or an official product of Google, Android, or the Digital Wellbeing team. Android, Google, and Digital Wellbeing are trademarks of their respective owners.
+> **Independent project:** Screen Consume is not affiliated with, endorsed by, sponsored by, or an official product of Google, Android, or the Digital Wellbeing team. Android, Google, and Digital Wellbeing are trademarks of their respective owners.
 
 ## The problem being explored
 
-Digital wellbeing tools can help people understand and adjust their relationship with technology. ScreenConsume began with a narrower question: what additional value could emerge if people had access to more durable, inspectable, and portable summaries of their own app usage?
+Digital wellbeing tools can help people understand and adjust their relationship with technology. Screen Consume began with a narrower question: what additional value could emerge if people had access to more durable, inspectable, and portable summaries of their own app usage?
 
 The proof of concept explores several ideas:
 
@@ -32,41 +32,46 @@ The current app includes:
 - Plaintext CSV and JSON export for a selected date range.
 - Idempotent JSON restore with input validation and resource limits.
 - Password-encrypted full-history backup and restore.
+- English and Spanish interfaces selected automatically from the device language.
+- A single main view with daily totals, app search/expansion, and per-app history charts.
+
+No online integration is exposed in the interface. The source retains only a provider-neutral future extension interface; no provider, authentication flow, API client, upload job, or other online connection is implemented or shipped.
 
 ## Screenshots
 
 Screenshots are not yet included. Before a public release, add captures made with synthetic or non-personal usage data.
 
-| Dashboard | Apps | Trends | Data & Integrations |
-| --- | --- | --- | --- |
-| _Screenshot pending_ | _Screenshot pending_ | _Screenshot pending_ | _Screenshot pending_ |
+| Main view | App history | Settings |
+| --- | --- | --- |
+| _Screenshot pending_ | _Screenshot pending_ | _Screenshot pending_ |
 
 ## Privacy-first and local-first
 
-ScreenConsume is designed so the core experience works entirely on the device:
+Screen Consume is designed so the core experience works entirely on the device:
 
 - No account or backend is required.
 - No Firebase, analytics, telemetry, advertising, or tracking SDK is included.
 - The application does not request Android's `INTERNET` permission.
+- The first-run **No internet connection** badge describes the current app boundary: no network permission, network client, account system, automatic upload, or online provider.
 - WorkManager contributes wake-lock and boot-completed permissions for periodic aggregation and rescheduling; neither provides network access or user-data access.
 - Raw usage events and exact event timestamps are processed in memory and are not persisted.
 - Compact daily aggregates are stored in the app's private Room database with no application-level expiration.
 - Android automatic application backup is disabled.
-- Data leaves the app's private storage only when the user explicitly chooses an export or backup destination.
+- Data leaves the app's private storage only when the user explicitly chooses an export or backup destination. Android's document picker may offer third-party or cloud-backed destinations; those providers are outside Screen Consume and do not mean the app itself has a network connection.
 
 See [PRIVACY.md](PRIVACY.md) for the implementation-specific data description and [SECURITY.md](SECURITY.md) for security boundaries and limitations.
 
 ## Usage Access
 
-ScreenConsume requires Android's Usage Access special access (`android.permission.PACKAGE_USAGE_STATS`). The user grants it explicitly from Android Settings; it is not a normal runtime permission dialog.
+Screen Consume requires Android's Usage Access special access (`android.permission.PACKAGE_USAGE_STATS`). The user grants it explicitly from Android Settings; it is not a normal runtime permission dialog.
 
-Usage Access is needed to read `UsageEvents` activity resume, pause, and stop events for apps used on the device. ScreenConsume processes those events into daily summaries. Without Usage Access, the app shows an explanatory empty state and cannot collect new usage information.
+Usage Access is needed to read `UsageEvents` activity resume, pause, and stop events for apps used on the device. Screen Consume processes those events into daily summaries. Without Usage Access, the app shows an explanatory empty state and cannot collect new usage information.
 
 Because Usage Access exposes package names and event timestamps retained by Android, it is sensitive. It can be revoked at any time in Android Settings. Revoking access stops new collection but does not delete aggregates already stored.
 
 ## Data model
 
-For an app observed in usage events, ScreenConsume stores:
+For an app observed in usage events, Screen Consume stores:
 
 - Package name, display label, and optional Android-provided category.
 - Calendar date.
@@ -76,7 +81,7 @@ For an app observed in usage events, ScreenConsume stores:
 
 DataStore separately holds onboarding completion and the timestamp of the last successful aggregation. The app does not store individual interaction records, exact app-open timestamps, notification contents/counts, unlock counts, screen contents, typed text, location, contacts, messages, calls, clipboard content, or device identifiers.
 
-“Launch count” means foreground-resume events observed in the aggregation window, not operating-system process launches. Android and device-manufacturer retention behavior can produce missing events or incomplete history; ScreenConsume does not silently invent missing data.
+“Launch count” means foreground-resume events observed in the aggregation window, not operating-system process launches. Android and device-manufacturer retention behavior can produce missing events or incomplete history; Screen Consume does not silently invent missing data.
 
 ## Export and encrypted backup
 
@@ -87,7 +92,7 @@ Exports use Android's system document picker, so the app needs no broad storage 
 - Encrypted `.scb` backups contain all stored history and use AES-256-GCM with a key derived from the user's password using PBKDF2-HMAC-SHA256.
 - Restore input is limited to 25 MB and 250,000 records, with field-length and usage-value validation.
 
-A selected document provider may be cloud-backed. In that case, the user's explicit choice of destination can cause the file to leave the device. ScreenConsume itself has no network client and performs no automatic upload. Exported files remain sensitive and are outside the app's control after creation.
+A selected document provider may be cloud-backed. In that case, the user's explicit choice of destination can cause the file to leave the device. Screen Consume itself has no network client and performs no automatic upload. Exported files remain sensitive and are outside the app's control after creation.
 
 ## Security considerations
 
@@ -99,7 +104,7 @@ Please report security issues using the process in [SECURITY.md](SECURITY.md). D
 
 ## Architecture
 
-ScreenConsume is a single-module native Android application using Kotlin, Jetpack Compose/Material 3, Room, Coroutines and Flow, ViewModel, WorkManager, and DataStore. A small manual `AppContainer` keeps dependency wiring explicit.
+Screen Consume is a single-module native Android application using Kotlin, Jetpack Compose/Material 3, Room, Coroutines and Flow, ViewModel, WorkManager, and DataStore. A small manual `AppContainer` keeps dependency wiring explicit.
 
 ```text
 app/src/main/java/org/screenconsume/app/
@@ -135,7 +140,7 @@ Open the repository in Android Studio and allow Gradle to sync, or use the check
 ./gradlew assembleDebug
 ```
 
-The debug APK is generated under `app/build/outputs/apk/debug/`. Install it from Android Studio or with ADB, then launch ScreenConsume and select **Grant Usage Access**.
+The debug APK is generated under `app/build/outputs/apk/debug/`. Install it from Android Studio or with ADB, then launch Screen Consume and select **Grant Usage Access**.
 
 Room instrumentation tests require a connected device or emulator:
 
@@ -153,7 +158,7 @@ To build the hardened release variant:
 
 ## Current status
 
-ScreenConsume is an early proof of concept, not a production service or an official Digital Wellbeing proposal. The local collection, aggregation, historical dashboard, export, restore, encrypted backup, background work, and core tests are implemented. Visual design, accessibility review, device compatibility testing, richer charts, data-deletion controls, migration strategy, and potential opt-in integrations need further work.
+Screen Consume is an early proof of concept, not a production service or an official Digital Wellbeing proposal. The local collection, aggregation, historical dashboard, export, restore, encrypted backup, background work, and core tests are implemented. Visual design, accessibility review, device compatibility testing, richer charts, data-deletion controls, migration strategy, and potential opt-in integrations need further work.
 
 The repository currently has no continuous-integration workflow. Dependabot is configured for weekly, human-reviewed Gradle dependency updates.
 

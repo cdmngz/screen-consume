@@ -8,12 +8,26 @@
     <!-- WorkManager declares these capabilities for optional features that this app does not use. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
+    <!-- Allows local label/icon lookup for apps the user can launch. This is not a permission. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.HOME" />
+            <category android:name="android.intent.category.DEFAULT" />
+        </intent>
+    </queries>
     <application
         android:name=".ScreenConsumeApplication"
         android:allowBackup="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.ScreenConsume">
         <activity

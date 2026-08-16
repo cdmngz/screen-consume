@@ -23,4 +23,3 @@ class AnalyticsCalculatorTest {
         assertEquals(50, result.comparisonPercent)
     }
 }
-

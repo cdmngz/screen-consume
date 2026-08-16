@@ -1,6 +1,6 @@
 # Security policy and model
 
-ScreenConsume is an independent proof of concept that handles sensitive behavioral information. This document describes the reviewed source implementation and its limits; it is not a claim that the application is completely secure, production-hardened, or endorsed by Google or Android.
+Screen Consume is an independent proof of concept that handles sensitive behavioral information. This document describes the reviewed source implementation and its limits; it is not a claim that the application is completely secure, production-hardened, or endorsed by Google or Android.
 
 ## Project status
 
@@ -18,10 +18,13 @@ Prefer a private GitHub security advisory for this repository. Do not include pe
 - Android automatic application backup is disabled with `android:allowBackup="false"`, legacy full-backup exclusions, and Android 12+ cloud/device-transfer exclusions.
 - The only app-defined exported component is the launcher `MainActivity`, required for launching from the home screen. It exposes no custom deep link or intent API. Merged AndroidX manifests also expose WorkManager's job service behind the system-only `BIND_JOB_SERVICE` permission and diagnostics/profile receivers behind the system-only `DUMP` permission; ordinary applications cannot invoke them.
 - Room and DataStore live in the application's private Android sandbox. No content provider, WebView, native/JNI library, dynamic code loader, shell execution, APK installer, accessibility service, or external network service is implemented.
+- No online integration is exposed in the interface. No authentication, API client, credential storage, token handling, sync worker, or `SyncProvider` implementation ships. An integration must not be represented as functional until those boundaries are deliberately designed and reviewed.
 - Raw `UsageEvents`, exact timestamps, and individual foreground intervals are held only while aggregating. The persisted records are daily per-app aggregates.
 - Restore reads only a document explicitly selected through the system picker, applies a 25 MB input limit and 250,000-record limit, validates field lengths and usage totals, and writes through a Room transaction.
 
 These statements describe the reviewed source configuration. Device firmware, the Android operating system, installed document providers, build host, and third-party dependency integrity remain outside the application's direct control.
+
+The first-run **No internet connection** statement is accurate for the reviewed app itself. It does not prevent a user-selected Storage Access Framework provider from copying an explicitly exported file to cloud storage under that provider's own permissions and behavior.
 
 ## Sensitive data
 
@@ -31,7 +34,7 @@ The Room database is not application-level encrypted. Its primary protections ar
 
 ## Usage Access
 
-The user must explicitly grant Android Usage Access in system settings. That access lets ScreenConsume observe usage events containing package names and event timestamps retained by Android. ScreenConsume does not use Accessibility services and does not capture screen content, typed text, notification contents, camera, microphone, contacts, SMS, calls, location, clipboard, or device identifiers.
+The user must explicitly grant Android Usage Access in system settings. That access lets Screen Consume observe usage events containing package names and event timestamps retained by Android. Screen Consume does not use Accessibility services and does not capture screen content, typed text, notification contents, camera, microphone, contacts, SMS, calls, location, clipboard, or device identifiers.
 
 Revoking Usage Access stops new collection but does not delete aggregates already stored. Application storage can be cleared through Android Settings, or the app can be uninstalled, to remove local records.
 

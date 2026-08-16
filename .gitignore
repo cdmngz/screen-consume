@@ -14,3 +14,4 @@ captures/
 *.apk
 *.aab
 .signing/
+.DS_Store

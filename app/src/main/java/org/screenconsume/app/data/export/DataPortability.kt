@@ -41,7 +41,7 @@ object DataPortability {
 
     fun fromJson(bytes: ByteArray): List<PortableUsageRow> {
         val root = JSONObject(bytes.toString(Charsets.UTF_8))
-        require(root.getString("format") == "screen-consume-backup") { "Not a ScreenConsume data file" }
+        require(root.getString("format") == "screen-consume-backup") { "Not a Screen Consume data file" }
         require(root.getInt("version") == VERSION) { "Unsupported backup version" }
         val records = root.getJSONArray("records")
         require(records.length() <= MAX_RECORDS) { "Backup exceeds the $MAX_RECORDS record limit" }
@@ -70,7 +70,7 @@ object DataPortability {
     }
 
     fun decrypt(backup: ByteArray, password: CharArray): ByteArray {
-        require(backup.size > 48 && backup.copyOfRange(0, 4).contentEquals(magic)) { "Not an encrypted ScreenConsume backup" }
+        require(backup.size > 48 && backup.copyOfRange(0, 4).contentEquals(magic)) { "Not an encrypted Screen Consume backup" }
         val salt = backup.copyOfRange(4, 20)
         val iv = backup.copyOfRange(20, 32)
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")

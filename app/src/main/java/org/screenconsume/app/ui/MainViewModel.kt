@@ -7,14 +7,28 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import org.screenconsume.app.R
 import org.screenconsume.app.data.repository.UsageRepository
 import org.screenconsume.app.domain.model.DashboardStats
 import org.screenconsume.app.domain.model.DateRange
+import org.screenconsume.app.domain.model.AppUsage
+import org.screenconsume.app.domain.model.DayUsage
 import java.time.LocalDate
 
-enum class RangePreset(val label: String) {
-    TODAY("Today"), WEEK("7 days"), MONTH("30 days"), THIS_MONTH("Month"), YEAR("Year"), ALL("All time"), CUSTOM("Custom")
+enum class RangePreset(val labelRes: Int) {
+    TODAY(R.string.today), WEEK(R.string.seven_days), MONTH(R.string.thirty_days), THIS_MONTH(R.string.month), YEAR(R.string.year), ALL(R.string.all_time), CUSTOM(R.string.custom)
 }
+
+enum class AppHistoryPreset(val labelRes: Int) {
+    WEEK(R.string.seven_days), MONTH(R.string.thirty_days), YEAR(R.string.year), ALL(R.string.all_time)
+}
+
+data class AppDetailUiState(
+    val app: AppUsage,
+    val preset: AppHistoryPreset,
+    val range: DateRange,
+    val days: List<DayUsage> = emptyList(),
+)
 
 data class MainUiState(
     val hasUsageAccess: Boolean = false,
@@ -36,6 +50,8 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
     private val customRange = MutableStateFlow(DateRange.endingToday(30))
     private val access = MutableStateFlow(repository.hasUsageAccess)
     private val operation = MutableStateFlow(OperationState())
+    private val selectedApp = MutableStateFlow<AppUsage?>(null)
+    private val appHistoryPreset = MutableStateFlow(AppHistoryPreset.WEEK)
 
     private val range = combine(preset, customRange, repository.earliestDate) { selected, custom, earliest ->
         val today = LocalDate.now()
@@ -58,8 +74,30 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
         MainUiState(granted, dashboard.preset, dashboard.range, dashboard.stats, lastRun, task.message, task.inProgress, false)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainUiState())
 
+    val appDetail: StateFlow<AppDetailUiState?> = combine(selectedApp, appHistoryPreset, repository.earliestDate) { app, selected, earliest ->
+        if (app == null) null else {
+            val today = LocalDate.now()
+            val detailRange = when (selected) {
+                AppHistoryPreset.WEEK -> DateRange.endingToday(7, today)
+                AppHistoryPreset.MONTH -> DateRange.endingToday(30, today)
+                AppHistoryPreset.YEAR -> DateRange.endingToday(365, today)
+                AppHistoryPreset.ALL -> DateRange(earliest ?: today, today)
+            }
+            Triple(app, selected, detailRange)
+        }
+    }.flatMapLatest { selection ->
+        if (selection == null) flowOf(null) else {
+            val (app, selected, detailRange) = selection
+            repository.appHistory(app.packageName, detailRange)
+                .map { AppDetailUiState(app, selected, detailRange, it) }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
     fun selectPreset(value: RangePreset) { preset.value = value }
     fun selectCustomRange(value: DateRange) { customRange.value = value; preset.value = RangePreset.CUSTOM }
+    fun openApp(app: AppUsage) { selectedApp.value = app; appHistoryPreset.value = AppHistoryPreset.WEEK }
+    fun closeApp() { selectedApp.value = null }
+    fun selectAppHistoryPreset(value: AppHistoryPreset) { appHistoryPreset.value = value }
     fun clearOperationMessage() { operation.value = OperationState() }
 
     fun refresh() {
@@ -67,8 +105,12 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
         if (access.value) viewModelScope.launch { repository.aggregate(LocalDate.now()) }
     }
 
-    fun exportCsv(uri: Uri) = perform("CSV export") { repository.exportCsv(uri, state.value.range) }
-    fun exportJson(uri: Uri) = perform("JSON export") { repository.exportJson(uri, state.value.range) }
+    fun exportCsv(uri: Uri, range: DateRange?) = perform("CSV export") {
+        if (range == null) repository.exportAllCsv(uri) else repository.exportCsv(uri, range)
+    }
+    fun exportJson(uri: Uri, range: DateRange?) = perform("JSON export") {
+        if (range == null) repository.exportAllJson(uri) else repository.exportJson(uri, range)
+    }
     fun exportEncryptedBackup(uri: Uri, password: CharArray) = perform("Encrypted backup") { repository.exportEncryptedBackup(uri, password) }
     fun restore(uri: Uri, password: CharArray?) = perform("Restore") { repository.restore(uri, password) }
 

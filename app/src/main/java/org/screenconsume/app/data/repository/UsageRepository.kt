@@ -67,8 +67,14 @@ class UsageRepository(
         }
     }
 
+    fun appHistory(packageName: String, range: DateRange): Flow<List<DayUsage>> =
+        database.usageDao().observeAppDays(packageName, range.start.toString(), range.endInclusive.toString())
+            .map { rows -> rows.map { DayUsage(LocalDate.parse(it.date), it.usageSeconds) } }
+
     suspend fun exportCsv(uri: Uri, range: DateRange): Int = export(uri, range, encryptedPassword = null, csv = true)
     suspend fun exportJson(uri: Uri, range: DateRange): Int = export(uri, range, encryptedPassword = null, csv = false)
+    suspend fun exportAllCsv(uri: Uri): Int = export(uri, fullRange(), encryptedPassword = null, csv = true)
+    suspend fun exportAllJson(uri: Uri): Int = export(uri, fullRange(), encryptedPassword = null, csv = false)
     suspend fun exportEncryptedBackup(uri: Uri, password: CharArray): Int = try {
         export(uri, fullRange(), encryptedPassword = password, csv = false)
     } finally {

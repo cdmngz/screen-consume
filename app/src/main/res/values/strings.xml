@@ -1,2 +1,25 @@
-<resources><string name="app_name">ScreenConsume</string></resources>
-
+<resources>
+    <string name="app_name">Screen Consume</string>
+    <string name="screen_time_stays_yours">Your screen time stays yours</string>
+    <string name="usage_access_explanation">%1$s needs Usage Access to create daily totals. It stores only local aggregates—not individual interactions or exact app-open timestamps.</string>
+    <string name="secure">Secure</string><string name="local_data">Local data</string><string name="no_internet_connection">No internet connection</string>
+    <string name="on_device_assurance">The app stores usage history on this phone and makes no network connection. Data leaves only when you explicitly export it.</string>
+    <string name="grant_usage_access">Grant Usage Access</string>
+    <string name="today">Today</string><string name="seven_days">7 days</string><string name="thirty_days">30 days</string>
+    <string name="month">Month</string><string name="year">Year</string><string name="all_time">All time</string><string name="custom">Custom</string>
+    <string name="custom_range">Custom range</string><string name="all_data">All data</string>
+    <string name="daily_screen_time">Daily screen time</string><string name="daily_totals_placeholder">Daily totals will appear here as usage is collected.</string>
+    <string name="each_point_selected_period">Each point is one day in the selected period.</string>
+    <string name="total_screen_time">Total screen time</string><string name="daily_average">Daily average</string><string name="app_launches">App launches</string>
+    <string name="most_used_apps">Most used apps</string><string name="search_results">%1$d search results</string><string name="showing_all_apps">Showing all %1$d apps</string><string name="showing_top_apps">Showing top %1$d apps</string>
+    <string name="search_by_app_name">Search by app name</string><string name="no_usage_period">No usage recorded for this period yet.</string><string name="no_search_matches">No apps match your search.</string>
+    <string name="open_settings">Open settings</string><string name="hide_app_search">Hide app search</string><string name="search_apps">Search apps</string><string name="show_top_apps">Show top apps</string><string name="show_all_apps">Show all apps</string><string name="back_to_dashboard">Back to dashboard</string>
+    <string name="launch_count">%1$d launches</string><string name="usage_over_time">Usage over time</string><string name="no_app_usage_period">No usage was recorded for this app during this period.</string><string name="each_point_recorded_usage">Each point represents one day with recorded usage.</string><string name="total">Total</string><string name="close">Close</string>
+    <string name="data_collection">Data collection</string><string name="collection_health">Collection health</string><string name="no_successful_aggregation">No successful aggregation yet</string>
+    <string name="export">Export</string><string name="export_description">Choose exactly how much local usage history to export.</string><string name="all_export_description">Every stored daily app aggregate will be included.</string><string name="custom_export_description">Only records within this range will be included</string><string name="change">Change</string><string name="export_csv">Export CSV</string><string name="export_json">Export JSON</string>
+    <string name="backup_restore">Backup &amp; restore</string><string name="backup_description">Encrypted backups include all history and use AES-256-GCM with a key derived from your password. The password cannot be recovered.</string><string name="create_encrypted_backup">Create encrypted backup</string><string name="restore_json">Restore JSON</string><string name="restore_encrypted_backup">Restore encrypted backup</string>
+    <string name="privacy">Privacy</string><string name="privacy_description">Usage information is stored locally. No account, analytics SDK, advertising SDK, or Internet permission is included. Data leaves your device only when you explicitly export it or enable a future connection.</string>
+    <string name="backup_password">Backup password</string><string name="password">Password</string><string name="continue_action">Continue</string><string name="cancel">Cancel</string>
+    <string name="custom_date_range">Custom date range</string><string name="date_format_hint">Use YYYY-MM-DD</string><string name="start">Start</string><string name="end">End</string><string name="apply">Apply</string>
+    <string name="no_previous_baseline">No previous-period baseline</string><string name="same_previous_period">Same as the previous period</string><string name="percent_previous_period">%1$s%2$d%% vs previous period</string>
+</resources>

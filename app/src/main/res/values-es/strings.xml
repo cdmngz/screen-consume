@@ -1,0 +1,25 @@
+<resources>
+    <string name="app_name">Screen Consume</string>
+    <string name="screen_time_stays_yours">Tu tiempo de pantalla es solo tuyo</string>
+    <string name="usage_access_explanation">%1$s necesita Acceso de uso para crear totales diarios. Solo guarda datos locales agregados, no interacciones individuales ni horas exactas de apertura.</string>
+    <string name="secure">Seguro</string><string name="local_data">Datos locales</string><string name="no_internet_connection">Sin conexión a Internet</string>
+    <string name="on_device_assurance">La app guarda el historial de uso en este teléfono y no se conecta a la red. Los datos solo salen cuando los exportas explícitamente.</string>
+    <string name="grant_usage_access">Conceder Acceso de uso</string>
+    <string name="today">Hoy</string><string name="seven_days">7 días</string><string name="thirty_days">30 días</string>
+    <string name="month">Mes</string><string name="year">Año</string><string name="all_time">Todo el tiempo</string><string name="custom">Personalizado</string>
+    <string name="custom_range">Periodo personalizado</string><string name="all_data">Todos los datos</string>
+    <string name="daily_screen_time">Tiempo de pantalla diario</string><string name="daily_totals_placeholder">Los totales diarios aparecerán aquí a medida que se recopile el uso.</string>
+    <string name="each_point_selected_period">Cada punto representa un día del periodo seleccionado.</string>
+    <string name="total_screen_time">Tiempo de pantalla total</string><string name="daily_average">Media diaria</string><string name="app_launches">Aperturas de apps</string>
+    <string name="most_used_apps">Apps más usadas</string><string name="search_results">%1$d resultados de búsqueda</string><string name="showing_all_apps">Mostrando las %1$d apps</string><string name="showing_top_apps">Mostrando las %1$d primeras apps</string>
+    <string name="search_by_app_name">Buscar por nombre de app</string><string name="no_usage_period">Todavía no hay uso registrado para este periodo.</string><string name="no_search_matches">Ninguna app coincide con la búsqueda.</string>
+    <string name="open_settings">Abrir ajustes</string><string name="hide_app_search">Ocultar búsqueda de apps</string><string name="search_apps">Buscar apps</string><string name="show_top_apps">Mostrar apps principales</string><string name="show_all_apps">Mostrar todas las apps</string><string name="back_to_dashboard">Volver al inicio</string>
+    <string name="launch_count">%1$d aperturas</string><string name="usage_over_time">Uso a lo largo del tiempo</string><string name="no_app_usage_period">No se registró uso de esta app durante este periodo.</string><string name="each_point_recorded_usage">Cada punto representa un día con uso registrado.</string><string name="total">Total</string><string name="close">Cerrar</string>
+    <string name="data_collection">Recopilación de datos</string><string name="collection_health">Estado de recopilación</string><string name="no_successful_aggregation">Todavía no se ha completado ninguna recopilación</string>
+    <string name="export">Exportar</string><string name="export_description">Elige exactamente cuánto historial local quieres exportar.</string><string name="all_export_description">Se incluirán todos los datos diarios almacenados de las apps.</string><string name="custom_export_description">Solo se incluirán registros dentro de este periodo</string><string name="change">Cambiar</string><string name="export_csv">Exportar CSV</string><string name="export_json">Exportar JSON</string>
+    <string name="backup_restore">Copia de seguridad y restauración</string><string name="backup_description">Las copias cifradas incluyen todo el historial y usan AES-256-GCM con una clave derivada de tu contraseña. La contraseña no se puede recuperar.</string><string name="create_encrypted_backup">Crear copia cifrada</string><string name="restore_json">Restaurar JSON</string><string name="restore_encrypted_backup">Restaurar copia cifrada</string>
+    <string name="privacy">Privacidad</string><string name="privacy_description">La información de uso se almacena localmente. No se incluye ninguna cuenta, analítica, publicidad ni permiso de Internet. Los datos solo salen del dispositivo cuando los exportas explícitamente o activas una futura conexión.</string>
+    <string name="backup_password">Contraseña de la copia</string><string name="password">Contraseña</string><string name="continue_action">Continuar</string><string name="cancel">Cancelar</string>
+    <string name="custom_date_range">Periodo de fechas personalizado</string><string name="date_format_hint">Usa AAAA-MM-DD</string><string name="start">Inicio</string><string name="end">Fin</string><string name="apply">Aplicar</string>
+    <string name="no_previous_baseline">No hay un periodo anterior para comparar</string><string name="same_previous_period">Igual que el periodo anterior</string><string name="percent_previous_period">%1$s%2$d%% respecto al periodo anterior</string>
+</resources>
