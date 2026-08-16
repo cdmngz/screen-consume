@@ -23,12 +23,17 @@ import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.graphics.drawable.toBitmap
@@ -37,11 +42,13 @@ import org.screenconsume.app.R
 import org.screenconsume.app.domain.model.DateRange
 import org.screenconsume.app.domain.model.AppUsage
 import org.screenconsume.app.domain.model.DashboardStats
+import org.screenconsume.app.domain.model.DayUsage
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
+import kotlin.math.roundToInt
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -129,7 +136,8 @@ private fun DashboardScreen(
     }
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
                 UiIconButton(UiIcon.SETTINGS, stringResource(R.string.open_settings), openSettings)
             }
         }
@@ -145,10 +153,10 @@ private fun DashboardScreen(
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.daily_screen_time), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     if (state.stats.days.isEmpty()) {
-                        UsageLineChart(emptyList(), Modifier.fillMaxWidth().height(130.dp))
+                        UsageLineChart(emptyList(), state.range, Modifier.fillMaxWidth().height(130.dp))
                         Text(stringResource(R.string.daily_totals_placeholder), color = MaterialTheme.colorScheme.onSurfaceVariant)
                     } else {
-                        UsageLineChart(state.stats.days.map { it.usageSeconds }, Modifier.fillMaxWidth().height(150.dp))
+                        UsageLineChart(state.stats.days, state.range, Modifier.fillMaxWidth().height(165.dp))
                         Text(stringResource(R.string.each_point_selected_period), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
@@ -321,7 +329,7 @@ private fun AppDetailDialog(detail: AppDetailUiState, select: (AppHistoryPreset)
                 if (detail.days.isEmpty()) {
                     Text(stringResource(R.string.no_app_usage_period))
                 } else {
-                    UsageLineChart(detail.days.map { it.usageSeconds }, Modifier.fillMaxWidth().height(190.dp))
+                    UsageLineChart(detail.days, detail.range, Modifier.fillMaxWidth().height(205.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         MetricCard(stringResource(R.string.total), duration(total), Modifier.weight(1f))
                         MetricCard(stringResource(R.string.daily_average), duration(average), Modifier.weight(1f))
@@ -335,23 +343,46 @@ private fun AppDetailDialog(detail: AppDetailUiState, select: (AppHistoryPreset)
 }
 
 @Composable
-private fun UsageLineChart(values: List<Long>, modifier: Modifier = Modifier) {
+private fun UsageLineChart(days: List<DayUsage>, range: DateRange, modifier: Modifier = Modifier) {
     val lineColor = MaterialTheme.colorScheme.primary
     val gridColor = MaterialTheme.colorScheme.outlineVariant
-    Canvas(modifier.padding(vertical = 8.dp)) {
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val textMeasurer = rememberTextMeasurer()
+    val locale = LocalConfiguration.current.locales[0]
+    val labelFormatter = remember(range, locale) {
+        DateTimeFormatter.ofPattern(if (range.dayCount <= 7) "EEEEE" else "d/M", locale)
+    }
+    Canvas(modifier.padding(top = 8.dp)) {
+        val chartTop = 6.dp.toPx()
+        val chartBottom = size.height - 24.dp.toPx()
+        val chartHeight = (chartBottom - chartTop).coerceAtLeast(1f)
         repeat(4) { index ->
-            val y = size.height * index / 3f
+            val y = chartTop + chartHeight * index / 3f
             drawLine(gridColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 2f)
         }
-        if (values.isNotEmpty()) {
-            val maximum = values.maxOrNull()?.coerceAtLeast(1) ?: 1
-            val step = if (values.size <= 1) 0f else size.width / (values.size - 1)
-            val points = values.mapIndexed { index, seconds ->
-                val x = if (values.size == 1) size.width / 2f else index * step
-                Offset(x, size.height - (seconds.toFloat() / maximum) * size.height)
+        if (days.isNotEmpty()) {
+            val maximum = days.maxOf { it.usageSeconds }.coerceAtLeast(1)
+            val rangeSpan = (range.dayCount - 1).coerceAtLeast(1)
+            val points = days.map { day ->
+                val x = if (range.dayCount <= 1) size.width / 2f else {
+                    val offset = day.date.toEpochDay() - range.start.toEpochDay()
+                    size.width * (offset.toFloat() / rangeSpan)
+                }
+                val y = chartBottom - (day.usageSeconds.toFloat() / maximum) * chartHeight
+                Offset(x.coerceIn(0f, size.width), y)
             }
             points.zipWithNext().forEach { (start, end) -> drawLine(lineColor, start, end, strokeWidth = 6f) }
             points.forEach { drawCircle(lineColor, 7f, it) }
+
+            val labelIndices = if (days.size <= 7) days.indices.toList() else {
+                (0..4).map { ((days.lastIndex * it) / 4f).roundToInt() }.distinct()
+            }
+            labelIndices.forEach { index ->
+                val label = days[index].date.format(labelFormatter).uppercase(locale)
+                val measured = textMeasurer.measure(label, TextStyle(fontSize = 11.sp, color = labelColor))
+                val left = (points[index].x - measured.size.width / 2f).coerceIn(0f, size.width - measured.size.width)
+                drawText(measured, topLeft = Offset(left, chartBottom + 6.dp.toPx()))
+            }
         }
     }
 }
@@ -371,7 +402,12 @@ private fun SettingsScreen(state: MainUiState, viewModel: MainViewModel, onBack:
     val backupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri -> uri?.let { viewModel.exportEncryptedBackup(it, backupPassword.toCharArray()) }; backupPassword = "" }
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { viewModel.restore(it, pendingRestorePassword) }; pendingRestorePassword = null }
     LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        item { UiIconButton(UiIcon.BACK, stringResource(R.string.back_to_dashboard), onBack) }
+        item {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                UiIconButton(UiIcon.BACK, stringResource(R.string.back_to_dashboard), onBack)
+                Text(stringResource(R.string.settings), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            }
+        }
         item { SectionTitle(stringResource(R.string.data_collection)) }
         item {
             ListItem(

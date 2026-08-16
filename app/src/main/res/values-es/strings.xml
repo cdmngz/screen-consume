@@ -1,5 +1,6 @@
 <resources>
     <string name="app_name">Screen Consume</string>
+    <string name="settings">Ajustes</string>
     <string name="screen_time_stays_yours">Tu tiempo de pantalla es solo tuyo</string>
     <string name="usage_access_explanation">%1$s necesita Acceso de uso para crear totales diarios. Solo guarda datos locales agregados, no interacciones individuales ni horas exactas de apertura.</string>
     <string name="secure">Seguro</string><string name="local_data">Datos locales</string><string name="no_internet_connection">Sin conexión a Internet</string>
