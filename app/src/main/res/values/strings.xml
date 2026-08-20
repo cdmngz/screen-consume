@@ -6,12 +6,17 @@
     <string name="secure">Secure</string><string name="local_data">Local data</string><string name="no_internet_connection">No internet connection</string>
     <string name="on_device_assurance">The app stores usage history on this phone and makes no network connection. Data leaves only when you explicitly export it.</string>
     <string name="grant_usage_access">Grant Usage Access</string>
-    <string name="today">Today</string><string name="seven_days">7 days</string><string name="thirty_days">30 days</string>
+    <string name="today">Today</string><string name="day">Day</string><string name="week">Week</string><string name="seven_days">7 days</string><string name="thirty_days">30 days</string>
+    <string name="yesterday">Yesterday</string><string name="previous_day">Previous day</string><string name="next_day">Next day</string><string name="swipe_to_change_day">Swipe to change day</string>
     <string name="month">Month</string><string name="year">Year</string><string name="all_time">All time</string><string name="custom">Custom</string>
     <string name="custom_range">Custom range</string><string name="all_data">All data</string>
     <string name="daily_screen_time">Daily screen time</string><string name="daily_totals_placeholder">Daily totals will appear here as usage is collected.</string>
     <string name="each_point_selected_period">Each point is one day in the selected period.</string>
     <string name="total_screen_time">Total screen time</string><string name="daily_average">Daily average</string><string name="app_launches">App launches</string>
+    <string name="usage_share">Usage share</string><string name="top_apps_chart">Top apps</string>
+    <string name="usage_breakdown">Usage breakdown</string><string name="tap_bar_for_details">Tap a bar to see its apps and exact usage.</string><string name="swipe_period_hint">Swipe left for newer periods or right for older periods.</string>
+    <string name="other_apps">Other apps</string><string name="week_number">W%1$d</string>
+    <string name="morning">Morning</string><string name="afternoon">Afternoon</string><string name="evening">Evening</string><string name="night">Night</string>
     <string name="most_used_apps">Most used apps</string><string name="search_results">%1$d search results</string><string name="showing_all_apps">Showing all %1$d apps</string><string name="showing_top_apps">Showing top %1$d apps</string>
     <string name="search_by_app_name">Search by app name</string><string name="no_usage_period">No usage recorded for this period yet.</string><string name="no_search_matches">No apps match your search.</string>
     <string name="open_settings">Open settings</string><string name="hide_app_search">Hide app search</string><string name="search_apps">Search apps</string><string name="show_top_apps">Show top apps</string><string name="show_all_apps">Show all apps</string><string name="back_to_dashboard">Back to dashboard</string>

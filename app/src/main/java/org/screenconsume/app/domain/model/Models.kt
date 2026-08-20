@@ -25,6 +25,17 @@ data class AppUsage(
 
 data class DayUsage(val date: LocalDate, val usageSeconds: Long)
 
+data class DailyAppUsage(
+    val date: LocalDate,
+    val packageName: String,
+    val displayName: String,
+    val usageSeconds: Long,
+    val morningUsageSeconds: Long,
+    val afternoonUsageSeconds: Long,
+    val eveningUsageSeconds: Long,
+    val nightUsageSeconds: Long,
+)
+
 data class DashboardStats(
     val totalSeconds: Long = 0,
     val previousTotalSeconds: Long = 0,

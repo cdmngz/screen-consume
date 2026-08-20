@@ -12,7 +12,7 @@ Digital wellbeing tools can help people understand and adjust their relationship
 
 The proof of concept explores several ideas:
 
-- Historical views beyond a short recent window, including calendar months, years, all-time history, and custom ranges.
+- Swipeable daily, weekly, calendar-month, and calendar-year dashboard views, with all-time and custom ranges available for app history or export where appropriate.
 - Previous-period comparisons and average daily usage derived from the same underlying daily records.
 - App, category, launch-count, daily-trend, and broad time-of-day perspectives.
 - Indefinite local retention of compact daily aggregates, controlled by the device owner.
@@ -25,15 +25,17 @@ These are proposed concepts demonstrated by this repository. They should not be 
 
 The current app includes:
 
-- Dashboard ranges for today, seven days, 30 days, calendar month, calendar year, all time, and custom dates.
-- Total and average screen time, previous-period comparison, app totals, observed launches, daily trends, and category summaries where Android provides a category.
+- A dashboard period dropdown for day, week, calendar month, and calendar year, with horizontal gestures for moving between adjacent periods.
+- An interactive stacked usage chart: time-of-day buckets for today, daily buckets for a week, weekly buckets for a month, and monthly buckets for a year. Each bucket ranks the top three apps and groups the remainder as **Other**; tapping a bar reveals exact app names, durations, and totals.
+- Total and average screen time, previous-period comparison, app totals, observed launches, a labeled app-share chart, and category labels where Android provides a category.
 - Daily per-app aggregation with morning, afternoon, evening, and night totals.
 - Periodic, idempotent reaggregation of recent days with collection-health status.
 - Plaintext CSV and JSON export for a selected date range.
 - Idempotent JSON restore with input validation and resource limits.
 - Password-encrypted full-history backup and restore.
 - English and Spanish interfaces selected automatically from the device language.
-- A single main view with daily totals, app search/expansion, and per-app history charts.
+- Automatic light and dark themes based on the device setting, including theme-aware chart and system-bar colors.
+- A single main view with period analytics, app search/expansion, and per-app history charts.
 
 No online integration is exposed in the interface. The source retains only a provider-neutral future extension interface; no provider, authentication flow, API client, upload job, or other online connection is implemented or shipped.
 
@@ -158,7 +160,7 @@ To build the hardened release variant:
 
 ## Current status
 
-Screen Consume is an early proof of concept, not a production service or an official Digital Wellbeing proposal. The local collection, aggregation, historical dashboard, export, restore, encrypted backup, background work, and core tests are implemented. Visual design, accessibility review, device compatibility testing, richer charts, data-deletion controls, migration strategy, and potential opt-in integrations need further work.
+Screen Consume is an early proof of concept, not a production service or an official Digital Wellbeing proposal. The local collection, aggregation, swipeable historical dashboard, interactive charts, light/dark themes, export, restore, encrypted backup, background work, and core tests are implemented. Accessibility review, broad device and visual-regression testing, data-deletion controls, migration strategy, and potential opt-in integrations need further work.
 
 The repository currently has no continuous-integration workflow. Dependabot is configured for weekly, human-reviewed Gradle dependency updates.
 

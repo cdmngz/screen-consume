@@ -71,6 +71,16 @@ class UsageRepository(
         database.usageDao().observeAppDays(packageName, range.start.toString(), range.endInclusive.toString())
             .map { rows -> rows.map { DayUsage(LocalDate.parse(it.date), it.usageSeconds) } }
 
+    fun dailyAppUsage(range: DateRange): Flow<List<DailyAppUsage>> =
+        database.usageDao().observePortableRows(range.start.toString(), range.endInclusive.toString()).map { rows ->
+            rows.map {
+                DailyAppUsage(
+                    LocalDate.parse(it.date), it.packageName, it.displayName, it.usageSeconds,
+                    it.morningUsageSeconds, it.afternoonUsageSeconds, it.eveningUsageSeconds, it.nightUsageSeconds,
+                )
+            }
+        }
+
     suspend fun exportCsv(uri: Uri, range: DateRange): Int = export(uri, range, encryptedPassword = null, csv = true)
     suspend fun exportJson(uri: Uri, range: DateRange): Int = export(uri, range, encryptedPassword = null, csv = false)
     suspend fun exportAllCsv(uri: Uri): Int = export(uri, fullRange(), encryptedPassword = null, csv = true)
