@@ -7,4 +7,3 @@ import androidx.room.RoomDatabase
 abstract class ScreenConsumeDatabase : RoomDatabase() {
     abstract fun usageDao(): UsageDao
 }
-

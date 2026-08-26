@@ -29,6 +29,7 @@ The current app includes:
 - An interactive stacked usage chart: time-of-day buckets for today, daily buckets for a week, weekly buckets for a month, and monthly buckets for a year. Each bucket ranks the top three apps and groups the remainder as **Other**; tapping a bar reveals exact app names, durations, and totals.
 - Total and average screen time, previous-period comparison, app totals, observed launches, a labeled app-share chart, and category labels where Android provides a category.
 - Daily per-app aggregation with morning, afternoon, evening, and night totals.
+- Per-app detail analytics with a daily trend line, adaptive history bars, and a weekday frequency grid. Frequency circles become larger and darker as that day's usage approaches the highest visible daily value.
 - Periodic, idempotent reaggregation of recent days with collection-health status.
 - Plaintext CSV and JSON export for a selected date range.
 - Idempotent JSON restore with input validation and resource limits.
@@ -150,6 +151,18 @@ Room instrumentation tests require a connected device or emulator:
 ./gradlew connectedDebugAndroidTest
 ```
 
+## Tests and coverage
+
+The repository currently includes 12 JVM unit tests and one connected Android test. The JVM suite covers usage aggregation, time-of-day boundaries, dashboard analytics, CSV serialization, encrypted-backup round trips, and the app-detail chart calculations. Chart tests verify empty-day handling, daily/weekly/monthly history grouping, weekday placement, relative circle intensity, and the visible-week limit. The connected Room test verifies that repeated daily upserts do not create duplicate records.
+
+Run the JVM suite and generate the JaCoCo HTML report with:
+
+```sh
+./gradlew testDebugUnitTest createDebugUnitTestCoverageReport
+```
+
+The report is written to `app/build/reports/coverage/test/debug/index.html`. The current JVM report shows high coverage for the extracted chart calculations, but low project-wide coverage because Compose rendering, ViewModel flows, repositories, workers, and Android platform collection remain largely untested. Coverage output is a diagnostic baseline rather than a release-quality gate.
+
 To build the hardened release variant:
 
 ```sh
@@ -160,7 +173,7 @@ To build the hardened release variant:
 
 ## Current status
 
-Screen Consume is an early proof of concept, not a production service or an official Digital Wellbeing proposal. The local collection, aggregation, swipeable historical dashboard, interactive charts, light/dark themes, export, restore, encrypted backup, background work, and core tests are implemented. Accessibility review, broad device and visual-regression testing, data-deletion controls, migration strategy, and potential opt-in integrations need further work.
+Screen Consume is an early proof of concept, not a production service or an official Digital Wellbeing proposal. The local collection, aggregation, swipeable historical dashboard, interactive dashboard and app-detail charts, light/dark themes, export, restore, encrypted backup, background work, unit-test coverage reporting, and core tests are implemented. Accessibility review, broader ViewModel/repository/UI coverage, broad device and visual-regression testing, data-deletion controls, migration strategy, and potential opt-in integrations need further work.
 
 The repository currently has no continuous-integration workflow. Dependabot is configured for weekly, human-reviewed Gradle dependency updates.
 
@@ -180,4 +193,4 @@ The repository currently has no continuous-integration workflow. Dependabot is c
 
 ## License
 
-No open-source license has been selected yet. Until a license is added, the source is publicly viewable if published but is not automatically granted open-source reuse rights. Choose and add a `LICENSE` file before describing the project as open source or inviting redistribution and contributions.
+Screen Consume is open-source software licensed under the [Apache License 2.0](LICENSE). This permissive license allows use, modification, and redistribution while preserving attribution and providing an explicit patent grant.

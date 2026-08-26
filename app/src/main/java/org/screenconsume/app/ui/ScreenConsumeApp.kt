@@ -54,6 +54,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle as DateTextStyle
 import java.time.temporal.ChronoUnit
 import java.util.concurrent.TimeUnit
 import kotlin.math.roundToInt
@@ -546,11 +547,76 @@ private fun AppDetailDialog(detail: AppDetailUiState, select: (AppHistoryPreset)
                         MetricCard(stringResource(R.string.daily_average), duration(average), Modifier.weight(1f))
                     }
                     Text(stringResource(R.string.each_point_recorded_usage), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.history), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    UsageHistoryBarChart(detail.days, detail.range, Modifier.fillMaxWidth().height(165.dp))
+                    Text(stringResource(R.string.frequency), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    UsageFrequencyChart(detail.days, detail.range, Modifier.fillMaxWidth().height(190.dp))
+                    Text(stringResource(R.string.frequency_description), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },
     )
+}
+
+@Composable
+private fun UsageHistoryBarChart(days: List<DayUsage>, range: DateRange, modifier: Modifier = Modifier) {
+    val locale = LocalConfiguration.current.locales[0]
+    val buckets = remember(days, range, locale) { historyBuckets(days, range, locale) }
+    val barColor = MaterialTheme.colorScheme.primary
+    val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val textMeasurer = rememberTextMeasurer()
+    Canvas(modifier) {
+        val bottom = size.height - 23.dp.toPx()
+        val top = 5.dp.toPx()
+        val chartHeight = (bottom - top).coerceAtLeast(1f)
+        repeat(3) { index ->
+            val y = top + chartHeight * index / 2f
+            drawLine(gridColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 2f)
+        }
+        if (buckets.isEmpty()) return@Canvas
+        val maximum = buckets.maxOf { it.usageSeconds }.coerceAtLeast(1)
+        val slot = size.width / buckets.size
+        val barWidth = (slot * .58f).coerceAtMost(22.dp.toPx())
+        buckets.forEachIndexed { index, bucket ->
+            val left = slot * index + (slot - barWidth) / 2f
+            val height = chartHeight * bucket.usageSeconds.toFloat() / maximum
+            drawRoundRect(barColor, Offset(left, bottom - height), androidx.compose.ui.geometry.Size(barWidth, height), cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()))
+            if (buckets.size <= 14 || index % ((buckets.size + 6) / 7) == 0) {
+                val measured = textMeasurer.measure(bucket.label, TextStyle(fontSize = 10.sp, color = labelColor))
+                drawText(measured, topLeft = Offset((slot * (index + .5f) - measured.size.width / 2f).coerceAtLeast(0f), bottom + 5.dp.toPx()))
+            }
+        }
+    }
+}
+
+@Composable
+private fun UsageFrequencyChart(days: List<DayUsage>, range: DateRange, modifier: Modifier = Modifier) {
+    val locale = LocalConfiguration.current.locales[0]
+    val primary = MaterialTheme.colorScheme.primary
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val textMeasurer = rememberTextMeasurer()
+    val description = stringResource(R.string.frequency_chart_description)
+    val chartData = remember(days, range) { frequencyChartData(days, range) }
+    Canvas(modifier.semantics { contentDescription = description }) {
+        val labelWidth = 30.dp.toPx()
+        val plotWidth = (size.width - labelWidth).coerceAtLeast(1f)
+        val rowHeight = size.height / 7f
+        val columnWidth = plotWidth / chartData.weekCount
+        repeat(7) { row ->
+            val y = rowHeight * (row + .5f)
+            if (row > 0) drawLine(gridColor, Offset(0f, rowHeight * row), Offset(size.width, rowHeight * row), strokeWidth = 1f)
+            val day = java.time.DayOfWeek.of(row + 1).getDisplayName(DateTextStyle.NARROW, locale)
+            val measured = textMeasurer.measure(day, TextStyle(fontSize = 10.sp, color = labelColor))
+            drawText(measured, topLeft = Offset(size.width - measured.size.width, y - measured.size.height / 2f))
+        }
+        chartData.cells.forEach { cell ->
+            val radius = 2.dp.toPx() + cell.intensity * minOf(6.dp.toPx(), columnWidth * .32f)
+            drawCircle(primary.copy(alpha = .22f + .78f * cell.intensity), radius, Offset(columnWidth * (cell.column + .5f), rowHeight * (cell.row + .5f)))
+        }
+    }
 }
 
 @Composable
