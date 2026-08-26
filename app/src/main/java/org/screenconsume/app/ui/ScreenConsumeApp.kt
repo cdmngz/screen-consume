@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
@@ -883,6 +884,7 @@ private fun UsageLineChart(days: List<DayUsage>, range: DateRange, modifier: Mod
 
 @Composable
 private fun SettingsScreen(state: MainUiState, viewModel: MainViewModel, onBack: () -> Unit) {
+    val uriHandler = LocalUriHandler.current
     var showBackupPassword by remember { mutableStateOf(false) }
     var showRestorePassword by remember { mutableStateOf(false) }
     var backupPassword by remember { mutableStateOf("") }
@@ -953,6 +955,11 @@ private fun SettingsScreen(state: MainUiState, viewModel: MainViewModel, onBack:
         item { HorizontalDivider() }
         item { SectionTitle(stringResource(R.string.privacy)) }
         item { Text(stringResource(R.string.privacy_description)) }
+        item {
+            OutlinedButton(onClick = { uriHandler.openUri("https://github.com/cdmngz/screen-consume/blob/main/PRIVACY.md") }) {
+                Text(stringResource(R.string.open_privacy_policy))
+            }
+        }
     }
     if (showBackupPassword) PasswordDialog(stringResource(R.string.backup_password), backupPassword, { backupPassword = it }, { showBackupPassword = false; backupPassword = "" }) {
         showBackupPassword = false

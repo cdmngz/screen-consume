@@ -1,5 +1,15 @@
 # Screen Consume privacy information
 
+**Effective date:** August 26, 2026
+
+**App:** Screen Consume
+
+**Public developer name:** CD Apps
+
+**Privacy and support contact:** [GitHub Issues](https://github.com/cdmngz/screen-consume/issues)
+
+**Source and project page:** [github.com/cdmngz/screen-consume](https://github.com/cdmngz/screen-consume)
+
 Screen Consume is an independent proof of concept and is not affiliated with or endorsed by Google, Android, or the Digital Wellbeing team. This document describes behavior implemented in the reviewed source code. It does not by itself verify a separately distributed APK and does not cover modified builds, the Android operating system, device manufacturers, or third-party document providers selected by the user.
 
 ## Data the app accesses
@@ -52,3 +62,7 @@ Encrypted backups use AES-256-GCM and a password-derived key. The password is no
 Usage Access is powerful because application activity can reveal routines and interests. Android controls whether events are available and how long they are retained. Screen Consume aggregates available events locally, but event gaps, OEM behavior, delayed collection, or revoked access can make reports incomplete.
 
 Users can review or revoke Usage Access at any time in Android Settings. They should install only builds they trust and verify that a release retains the documented no-network and permission configuration.
+
+## Policy changes
+
+If Screen Consume's data practices change, this policy and its effective date will be updated before the changed version is released. Any future feature involving networking, accounts, analytics, advertising, or automatic data transmission requires a new privacy review and corresponding user disclosure.

@@ -67,7 +67,7 @@ Screen Consume is designed so the core experience works entirely on the device:
 - Android automatic application backup is disabled.
 - Data leaves the app's private storage only when the user explicitly chooses an export or backup destination. Android's document picker may offer third-party or cloud-backed destinations; those providers are outside Screen Consume and do not mean the app itself has a network connection.
 
-See [PRIVACY.md](PRIVACY.md) for the implementation-specific data description and [SECURITY.md](SECURITY.md) for security boundaries and limitations.
+See the public [privacy policy](https://github.com/cdmngz/screen-consume/blob/main/PRIVACY.md) for the implementation-specific data description and [SECURITY.md](SECURITY.md) for security boundaries and limitations. The same privacy-policy URL is available from the app's Settings screen.
 
 ## Usage Access
 
