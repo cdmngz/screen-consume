@@ -9,6 +9,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -32,6 +34,9 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
@@ -41,6 +46,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.BackHandler
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -89,6 +95,7 @@ fun ScreenConsumeApp(viewModel: MainViewModel, openUsageSettings: () -> Unit) {
             Box(Modifier.padding(padding).fillMaxSize()) {
                 when {
                     showingSettings -> SettingsScreen(state, viewModel, onBack = { showingSettings = false })
+                    appDetail != null -> AppDetailScreen(appDetail!!, state.lastSuccessfulAggregationMillis, viewModel::selectAppHistoryPreset, viewModel::closeApp)
                     !state.hasUsageAccess -> UsageAccessEmptyState(openUsageSettings, openAppSettings = { showingSettings = true })
                     else -> DashboardScreen(
                         state,
@@ -99,9 +106,6 @@ fun ScreenConsumeApp(viewModel: MainViewModel, openUsageSettings: () -> Unit) {
                     )
                 }
             }
-        }
-        appDetail?.let { detail ->
-            AppDetailDialog(detail, viewModel::selectAppHistoryPreset, viewModel::closeApp)
         }
     }
 }
@@ -183,13 +187,12 @@ private fun DashboardScreen(
                         }
                         PeriodDropdown(state.preset, select)
                     }
-                    Text(stringResource(R.string.tap_bar_for_details), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     StackedUsageChart(usageBuckets(state.preset, state.range, state.dailyApps))
                     Text(stringResource(R.string.swipe_period_hint), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
-        item { UsageSummaryCard(state.stats) }
+        item { UsageSummaryCard(state.headlineStats) }
         if (state.stats.apps.isNotEmpty()) item { UsageShareCard(state.stats.apps) }
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -308,21 +311,21 @@ private fun PeriodDropdown(selected: RangePreset, select: (RangePreset) -> Unit)
 }
 
 @Composable
-private fun UsageSummaryCard(stats: DashboardStats) {
+private fun UsageSummaryCard(stats: HeadlineStats) {
     ElevatedCard(Modifier.fillMaxWidth()) {
-        Row(
-            Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(18.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(18.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 MetricLabel(stringResource(R.string.total_screen_time))
-                MetricValue(duration(stats.totalSeconds))
-                Text(comparison(stats), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                MetricValue(duration(stats.todaySeconds))
+                Text(stringResource(R.string.time_during_this_day), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(monthComparison(stats.todaySeconds, stats.previousMonthAverageSeconds), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
             VerticalDivider()
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 MetricLabel(stringResource(R.string.daily_average))
-                MetricValue(duration(stats.averageDailySeconds))
+                MetricValue(duration(stats.monthAverageSeconds))
+                Text(stringResource(R.string.average_during_this_month), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(monthComparison(stats.monthAverageSeconds, stats.previousMonthAverageSeconds), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
         }
     }
@@ -384,7 +387,7 @@ private fun StackedUsageChart(buckets: List<UsageBucket>) {
                     contentAlignment = Alignment.BottomCenter,
                 ) {
                     Column(
-                        Modifier.fillMaxWidth(if (index == selectedIndex) .9f else .72f)
+                        Modifier.fillMaxWidth(.72f)
                             .fillMaxHeight((bucket.total.toFloat() / maximum).coerceIn(.025f, 1f)),
                         verticalArrangement = Arrangement.Bottom,
                     ) {
@@ -470,10 +473,11 @@ private fun chartColors(): List<Color> = if (isSystemInDarkTheme()) {
     listOf(Color(0xFF176B5B), Color(0xFF4783B5), Color(0xFFD07700), Color(0xFF89938F))
 }
 
-@Composable private fun MetricCard(label: String, value: String, modifier: Modifier) = ElevatedCard(modifier) {
+@Composable private fun MetricCard(label: String, value: String, description: String, modifier: Modifier) = ElevatedCard(modifier) {
     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
         MetricLabel(label)
         Text(value, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
+        Text(description, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -489,7 +493,12 @@ private fun AppRow(app: AppUsage, openApp: (AppUsage) -> Unit) {
         },
         headlineContent = { Text(displayName, fontWeight = FontWeight.Medium) },
         supportingContent = { Text(listOfNotNull(category, stringResource(R.string.launch_count, app.launchCount)).joinToString(" • ")) },
-        trailingContent = { Text(duration(app.usageSeconds), fontWeight = FontWeight.Bold) },
+        trailingContent = {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(duration(app.usageSeconds), fontWeight = FontWeight.Bold)
+                UiIconGraphic(UiIcon.FORWARD, Modifier.size(18.dp))
+            }
+        },
     )
 }
 
@@ -517,105 +526,269 @@ private fun appCategory(context: android.content.Context, info: ApplicationInfo)
     ApplicationInfo.getCategoryTitle(context, info.category)?.toString()
 
 @Composable
-private fun AppDetailDialog(detail: AppDetailUiState, select: (AppHistoryPreset) -> Unit, onDismiss: () -> Unit) {
+private fun AppDetailScreen(detail: AppDetailUiState, lastAggregationMillis: Long?, select: (AppHistoryPreset) -> Unit, onBack: () -> Unit) {
+    BackHandler(onBack = onBack)
     val installedApp = installedApp(detail.app.packageName)
     val name = installedApp?.label?.takeIf(String::isNotBlank) ?: detail.app.displayName
     val total = detail.days.sumOf { it.usageSeconds }
-    val average = if (detail.days.isEmpty()) 0 else total / detail.range.dayCount
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = {
+    val average = total / detail.range.dayCount
+    val lastAggregationDate = lastAggregationMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate() }
+    val collectionMayBeIncomplete = lastAggregationDate == null || lastAggregationDate.isBefore(minOf(detail.range.endInclusive, LocalDate.now()))
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(20.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+    ) {
+        item {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                UiIconButton(UiIcon.BACK, stringResource(R.string.back_to_dashboard), onBack)
                 installedApp?.icon?.let { Image(BitmapPainter(it), contentDescription = null, modifier = Modifier.size(40.dp)) }
-                Column { Text(name); Text(stringResource(R.string.usage_over_time), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant) }
+                Column(Modifier.weight(1f)) {
+                    Text(name, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.usage_over_time), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-        },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     AppHistoryPreset.entries.forEach { preset ->
                         FilterChip(selected = detail.preset == preset, onClick = { select(preset) }, label = { Text(stringResource(preset.labelRes)) })
                     }
                 }
                 Text(formatRange(detail.range), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (detail.days.isEmpty()) {
-                    Text(stringResource(R.string.no_app_usage_period))
-                } else {
-                    UsageLineChart(detail.days, detail.range, Modifier.fillMaxWidth().height(205.dp))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        MetricCard(stringResource(R.string.total), duration(total), Modifier.weight(1f))
-                        MetricCard(stringResource(R.string.daily_average), duration(average), Modifier.weight(1f))
-                    }
-                    Text(stringResource(R.string.each_point_recorded_usage), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(stringResource(R.string.history), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    UsageHistoryBarChart(detail.days, detail.range, Modifier.fillMaxWidth().height(165.dp))
-                    Text(stringResource(R.string.frequency), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    UsageFrequencyChart(detail.days, detail.range, Modifier.fillMaxWidth().height(190.dp))
-                    Text(stringResource(R.string.frequency_description), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
             }
-        },
-        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) } },
-    )
-}
-
-@Composable
-private fun UsageHistoryBarChart(days: List<DayUsage>, range: DateRange, modifier: Modifier = Modifier) {
-    val locale = LocalConfiguration.current.locales[0]
-    val buckets = remember(days, range, locale) { historyBuckets(days, range, locale) }
-    val barColor = MaterialTheme.colorScheme.primary
-    val gridColor = MaterialTheme.colorScheme.outlineVariant
-    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val textMeasurer = rememberTextMeasurer()
-    Canvas(modifier) {
-        val bottom = size.height - 23.dp.toPx()
-        val top = 5.dp.toPx()
-        val chartHeight = (bottom - top).coerceAtLeast(1f)
-        repeat(3) { index ->
-            val y = top + chartHeight * index / 2f
-            drawLine(gridColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 2f)
         }
-        if (buckets.isEmpty()) return@Canvas
-        val maximum = buckets.maxOf { it.usageSeconds }.coerceAtLeast(1)
-        val slot = size.width / buckets.size
-        val barWidth = (slot * .58f).coerceAtMost(22.dp.toPx())
-        buckets.forEachIndexed { index, bucket ->
-            val left = slot * index + (slot - barWidth) / 2f
-            val height = chartHeight * bucket.usageSeconds.toFloat() / maximum
-            drawRoundRect(barColor, Offset(left, bottom - height), androidx.compose.ui.geometry.Size(barWidth, height), cornerRadius = androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()))
-            if (buckets.size <= 14 || index % ((buckets.size + 6) / 7) == 0) {
-                val measured = textMeasurer.measure(bucket.label, TextStyle(fontSize = 10.sp, color = labelColor))
-                drawText(measured, topLeft = Offset((slot * (index + .5f) - measured.size.width / 2f).coerceAtLeast(0f), bottom + 5.dp.toPx()))
+        item {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                MetricCard(stringResource(R.string.total), duration(total), stringResource(R.string.total_selected_period_description), Modifier.weight(1f))
+                MetricCard(stringResource(R.string.daily_average), duration(average), stringResource(R.string.average_selected_period_description), Modifier.weight(1f))
+            }
+        }
+        if (detail.days.isEmpty()) item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(stringResource(R.string.no_app_usage_period))
+                if (collectionMayBeIncomplete) Text(stringResource(R.string.collection_may_be_incomplete), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+            }
+        }
+        else item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                UsageLineChart(detail.days, detail.range, Modifier.fillMaxWidth().height(205.dp))
+                Text(stringResource(R.string.each_point_recorded_usage), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                DetailSectionTitle(stringResource(R.string.calendar))
+                UsageCalendar(detail.calendarDays)
+                if (collectionMayBeIncomplete) Text(stringResource(R.string.collection_may_be_incomplete), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+            }
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                DetailSectionTitle(stringResource(R.string.best_streaks))
+                Text(stringResource(R.string.streaks_explanation), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                BestStreaks(detail.days)
+            }
+        }
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                DetailSectionTitle(stringResource(R.string.usage_patterns))
+                UsagePatternsCard(detail.days, detail.range)
             }
         }
     }
 }
 
 @Composable
-private fun UsageFrequencyChart(days: List<DayUsage>, range: DateRange, modifier: Modifier = Modifier) {
-    val locale = LocalConfiguration.current.locales[0]
+private fun DetailSectionTitle(text: String) = Text(
+    text,
+    style = MaterialTheme.typography.titleMedium,
+    fontWeight = FontWeight.SemiBold,
+)
+
+@Composable
+private fun UsageCalendar(days: List<DayUsage>) {
+    val today = LocalDate.now()
+    val earliest = LocalDate.of(2010, 1, 1)
+    var pageEnd by remember { mutableStateOf(today) }
+    var calendarDrag by remember { mutableFloatStateOf(0f) }
+    val pageStart = maxOf(earliest, pageEnd.minusWeeks(13).with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)))
+    val range = DateRange(pageStart, pageEnd)
+    val data = remember(days, range) { calendarChartData(days, range) }
+    var selected by remember(data) { mutableStateOf(data.cells.lastOrNull { it.usageSeconds > 0 } ?: data.cells.lastOrNull()) }
     val primary = MaterialTheme.colorScheme.primary
-    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
-    val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val empty = MaterialTheme.colorScheme.surfaceVariant
+    val onPrimary = MaterialTheme.colorScheme.onPrimary
+    val onEmpty = MaterialTheme.colorScheme.onSurfaceVariant
+    val outline = MaterialTheme.colorScheme.outline
     val textMeasurer = rememberTextMeasurer()
-    val description = stringResource(R.string.frequency_chart_description)
-    val chartData = remember(days, range) { frequencyChartData(days, range) }
-    Canvas(modifier.semantics { contentDescription = description }) {
-        val labelWidth = 30.dp.toPx()
-        val plotWidth = (size.width - labelWidth).coerceAtLeast(1f)
-        val rowHeight = size.height / 7f
-        val columnWidth = plotWidth / chartData.weekCount
-        repeat(7) { row ->
-            val y = rowHeight * (row + .5f)
-            if (row > 0) drawLine(gridColor, Offset(0f, rowHeight * row), Offset(size.width, rowHeight * row), strokeWidth = 1f)
-            val day = java.time.DayOfWeek.of(row + 1).getDisplayName(DateTextStyle.NARROW, locale)
-            val measured = textMeasurer.measure(day, TextStyle(fontSize = 10.sp, color = labelColor))
-            drawText(measured, topLeft = Offset(size.width - measured.size.width, y - measured.size.height / 2f))
+    val locale = LocalConfiguration.current.locales[0]
+    val description = stringResource(R.string.calendar_chart_description)
+    val selectedDescription = selected?.let { "${it.date.format(DateTimeFormatter.ofPattern("EEE, d MMM", locale))}, ${duration(it.usageSeconds)}" }.orEmpty()
+    fun moveSelection(offset: Long): Boolean {
+        val current = selected ?: return false
+        val target = current.date.plusDays(offset)
+        return data.cells.firstOrNull { it.date == target }?.let { selected = it; true } ?: false
+    }
+    val previousDay = stringResource(R.string.previous_day)
+    val nextDay = stringResource(R.string.next_day)
+    val chartModifier = Modifier.fillMaxWidth().height(230.dp).semantics {
+        contentDescription = description
+        stateDescription = selectedDescription
+        customActions = listOf(
+            CustomAccessibilityAction(previousDay) { moveSelection(-1) },
+            CustomAccessibilityAction(nextDay) { moveSelection(1) },
+        )
+    }.pointerInput(data) {
+        fun selectAt(position: Offset) {
+            val plotLeft = 25.dp.toPx()
+            val plotTop = 22.dp.toPx()
+            val column = ((position.x - plotLeft) / ((size.width - plotLeft) / data.weekCount)).toInt().coerceIn(0, data.weekCount - 1)
+            val row = ((position.y - plotTop) / ((size.height - plotTop) / 7f)).toInt().coerceIn(0, 6)
+            data.cells.firstOrNull { it.column == column && it.row == row }?.let { selected = it }
         }
-        chartData.cells.forEach { cell ->
-            val radius = 2.dp.toPx() + cell.intensity * minOf(6.dp.toPx(), columnWidth * .32f)
-            drawCircle(primary.copy(alpha = .22f + .78f * cell.intensity), radius, Offset(columnWidth * (cell.column + .5f), rowHeight * (cell.row + .5f)))
+        awaitEachGesture {
+            val down = awaitFirstDown()
+            selectAt(down.position)
+            do {
+                val event = awaitPointerEvent()
+                event.changes.firstOrNull()?.let { selectAt(it.position) }
+                event.changes.forEach { it.consume() }
+            } while (event.changes.any { it.pressed })
         }
+    }
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                Modifier.fillMaxWidth().pointerInput(pageEnd) {
+                    detectHorizontalDragGestures(
+                        onDragStart = { calendarDrag = 0f },
+                        onHorizontalDrag = { _, amount -> calendarDrag += amount },
+                        onDragEnd = {
+                            if (calendarDrag < -60f && pageStart > earliest) pageEnd = maxOf(earliest, pageEnd.minusWeeks(14))
+                            else if (calendarDrag > 60f && pageEnd < today) pageEnd = minOf(today, pageEnd.plusWeeks(14))
+                        },
+                    )
+                },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                UiIconButton(
+                    UiIcon.BACK,
+                    stringResource(R.string.older_calendar_period),
+                    { pageEnd = maxOf(earliest, pageEnd.minusWeeks(14)) },
+                    enabled = pageStart > earliest,
+                )
+                Text(formatRange(range), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                UiIconButton(
+                    UiIcon.FORWARD,
+                    stringResource(R.string.newer_calendar_period),
+                    { pageEnd = minOf(today, pageEnd.plusWeeks(14)) },
+                    enabled = pageEnd < today,
+                )
+            }
+            Canvas(chartModifier) {
+                val gap = 2.dp.toPx()
+                val plotLeft = 25.dp.toPx()
+                val plotTop = 22.dp.toPx()
+                val cellWidth = (size.width - plotLeft) / data.weekCount
+                val cellHeight = (size.height - plotTop) / 7f
+                repeat(7) { row ->
+                    val day = java.time.DayOfWeek.of(row + 1).getDisplayName(DateTextStyle.NARROW, locale)
+                    val measured = textMeasurer.measure(day, TextStyle(fontSize = 10.sp, color = onEmpty))
+                    drawText(measured, topLeft = Offset(0f, plotTop + row * cellHeight + (cellHeight - measured.size.height) / 2f))
+                }
+                repeat(data.weekCount) { column ->
+                    val date = data.cells.firstOrNull { it.column == column }?.date ?: data.firstWeekStart.plusWeeks(column.toLong())
+                    val previousMonth = data.cells.firstOrNull { it.column == column - 1 }?.date?.month
+                    if (column == 0 || date.month != previousMonth) {
+                        val month = date.month.getDisplayName(DateTextStyle.SHORT, locale)
+                        val measured = textMeasurer.measure(month, TextStyle(fontSize = 10.sp, color = onEmpty))
+                        drawText(measured, topLeft = Offset(plotLeft + column * cellWidth + 2.dp.toPx(), 0f))
+                    }
+                }
+                data.cells.forEach { cell ->
+                    val topLeft = Offset(plotLeft + cell.column * cellWidth + gap, plotTop + cell.row * cellHeight + gap)
+                    val cellSize = androidx.compose.ui.geometry.Size(cellWidth - gap * 2, cellHeight - gap * 2)
+                    val color = if (cell.usageSeconds == 0L) empty else primary.copy(alpha = .28f + .72f * cell.intensity)
+                    drawRoundRect(color, topLeft, cellSize, androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()))
+                    if (cell == selected) drawRoundRect(outline, topLeft, cellSize, androidx.compose.ui.geometry.CornerRadius(4.dp.toPx()), style = Stroke(2.dp.toPx()))
+                    val labelColor = if (cell.usageSeconds > 0 && cell.intensity > .55f) onPrimary else onEmpty
+                    val measured = textMeasurer.measure(cell.date.dayOfMonth.toString(), TextStyle(fontSize = 10.sp, color = labelColor, fontWeight = FontWeight.Medium))
+                    drawText(measured, topLeft = Offset(topLeft.x + (cellSize.width - measured.size.width) / 2f, topLeft.y + (cellSize.height - measured.size.height) / 2f))
+                }
+            }
+            selected?.let {
+                Text("${it.date.format(DateTimeFormatter.ofPattern("EEE, d MMM", locale))} · ${duration(it.usageSeconds)}", fontWeight = FontWeight.SemiBold)
+            }
+        }
+    }
+}
+
+@Composable
+private fun BestStreaks(days: List<DayUsage>) {
+    val streaks = remember(days) { bestUsageStreaks(days) }
+    val locale = LocalConfiguration.current.locales[0]
+    val formatter = remember(locale) { DateTimeFormatter.ofPattern("d MMM", locale) }
+    if (streaks.isEmpty()) {
+        Text(stringResource(R.string.no_streaks), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        return
+    }
+    val maximum = streaks.maxOf { it.dayCount }.toFloat()
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        streaks.take(5).forEachIndexed { index, streak ->
+            ElevatedCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Row(Modifier.fillMaxWidth()) {
+                        Text(stringResource(R.string.streak_days, streak.dayCount), fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.weight(1f))
+                        Text("${streak.start.format(formatter)} – ${streak.endInclusive.format(formatter)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    LinearProgressIndicator(
+                        progress = { streak.dayCount / maximum },
+                        modifier = Modifier.fillMaxWidth().height(if (index == 0) 9.dp else 6.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun UsagePatternsCard(days: List<DayUsage>, range: DateRange) {
+    val locale = LocalConfiguration.current.locales[0]
+    val patterns = remember(days) { usagePatterns(days) }
+    val total = patterns.weekdaySeconds + patterns.weekendSeconds
+    ElevatedCard(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            PatternRow(
+                stringResource(R.string.most_used_day),
+                patterns.mostUsedDay?.getDisplayName(DateTextStyle.FULL, locale) ?: stringResource(R.string.no_usage_period),
+            )
+            HorizontalDivider()
+            PatternRow(stringResource(R.string.active_days), stringResource(R.string.active_days_value, patterns.activeDays, range.dayCount))
+            HorizontalDivider()
+            PatternRow(
+                stringResource(R.string.weekday_weekend),
+                if (total == 0L) stringResource(R.string.no_usage_period) else stringResource(
+                    R.string.weekday_weekend_value,
+                    patterns.weekdaySeconds * 100 / total,
+                    patterns.weekendSeconds * 100 / total,
+                ),
+                stringResource(R.string.weekday_weekend_description),
+            )
+        }
+    }
+}
+
+@Composable
+private fun PatternRow(label: String, value: String, description: String? = null) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, fontWeight = FontWeight.SemiBold)
+        }
+        description?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
 }
 
@@ -626,40 +799,84 @@ private fun UsageLineChart(days: List<DayUsage>, range: DateRange, modifier: Mod
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val textMeasurer = rememberTextMeasurer()
     val locale = LocalConfiguration.current.locales[0]
+    val usageByDate = remember(days) { days.associate { it.date to it.usageSeconds } }
+    val chartDays = remember(days, range) {
+        generateSequence(range.start) { it.plusDays(1) }.takeWhile { !it.isAfter(range.endInclusive) }
+            .map { DayUsage(it, usageByDate[it] ?: 0) }.toList()
+    }
+    var selected by remember(chartDays) { mutableStateOf(chartDays.lastOrNull { it.usageSeconds > 0 } ?: chartDays.lastOrNull()) }
     val labelFormatter = remember(range, locale) {
         DateTimeFormatter.ofPattern(if (range.dayCount <= 7) "EEEEE" else "d/M", locale)
     }
-    Canvas(modifier.padding(top = 8.dp)) {
-        val chartTop = 6.dp.toPx()
-        val chartBottom = size.height - 24.dp.toPx()
-        val chartHeight = (chartBottom - chartTop).coerceAtLeast(1f)
-        repeat(4) { index ->
-            val y = chartTop + chartHeight * index / 3f
-            drawLine(gridColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 2f)
-        }
-        if (days.isNotEmpty()) {
-            val maximum = days.maxOf { it.usageSeconds }.coerceAtLeast(1)
-            val rangeSpan = (range.dayCount - 1).coerceAtLeast(1)
-            val points = days.map { day ->
-                val x = if (range.dayCount <= 1) size.width / 2f else {
-                    val offset = day.date.toEpochDay() - range.start.toEpochDay()
-                    size.width * (offset.toFloat() / rangeSpan)
+    fun moveSelection(offset: Long): Boolean {
+        val current = selected ?: return false
+        val target = current.date.plusDays(offset)
+        return chartDays.firstOrNull { it.date == target }?.let { selected = it; true } ?: false
+    }
+    val previousDay = stringResource(R.string.previous_day)
+    val nextDay = stringResource(R.string.next_day)
+    val chartDescription = stringResource(R.string.usage_trend_chart_description)
+    val selectedDescription = selected?.let { "${it.date.format(DateTimeFormatter.ofPattern("EEE, d MMM", locale))}, ${duration(it.usageSeconds)}" }.orEmpty()
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Canvas(
+            Modifier.fillMaxWidth().weight(1f).semantics {
+                contentDescription = chartDescription
+                stateDescription = selectedDescription
+                customActions = listOf(
+                    CustomAccessibilityAction(previousDay) { moveSelection(-1) },
+                    CustomAccessibilityAction(nextDay) { moveSelection(1) },
+                )
+            }.pointerInput(chartDays) {
+                fun selectAt(x: Float) {
+                    val index = if (chartDays.size <= 1) 0 else ((x / size.width) * chartDays.lastIndex).roundToInt().coerceIn(0, chartDays.lastIndex)
+                    selected = chartDays.getOrNull(index)
                 }
-                val y = chartBottom - (day.usageSeconds.toFloat() / maximum) * chartHeight
-                Offset(x.coerceIn(0f, size.width), y)
+                awaitEachGesture {
+                    val down = awaitFirstDown()
+                    selectAt(down.position.x)
+                    do {
+                        val event = awaitPointerEvent()
+                        event.changes.firstOrNull()?.let { selectAt(it.position.x) }
+                        event.changes.forEach { it.consume() }
+                    } while (event.changes.any { it.pressed })
+                }
+            },
+        ) {
+            val chartTop = 6.dp.toPx()
+            val chartBottom = size.height - 24.dp.toPx()
+            val chartHeight = (chartBottom - chartTop).coerceAtLeast(1f)
+            repeat(4) { index ->
+                val y = chartTop + chartHeight * index / 3f
+                drawLine(gridColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 2f)
             }
-            points.zipWithNext().forEach { (start, end) -> drawLine(lineColor, start, end, strokeWidth = 6f) }
-            points.forEach { drawCircle(lineColor, 7f, it) }
-
-            val labelIndices = if (days.size <= 7) days.indices.toList() else {
-                (0..4).map { ((days.lastIndex * it) / 4f).roundToInt() }.distinct()
+            if (chartDays.isNotEmpty()) {
+                val maximum = chartDays.maxOf { it.usageSeconds }.coerceAtLeast(1)
+                val denominator = chartDays.lastIndex.coerceAtLeast(1)
+                val points = chartDays.mapIndexed { index, day ->
+                    val x = if (chartDays.size <= 1) size.width / 2f else size.width * index / denominator
+                    val y = chartBottom - (day.usageSeconds.toFloat() / maximum) * chartHeight
+                    Offset(x.coerceIn(0f, size.width), y)
+                }
+                points.zipWithNext().forEach { (start, end) -> drawLine(lineColor, start, end, strokeWidth = 4f) }
+                if (chartDays.size <= 31) points.forEach { drawCircle(lineColor, 5f, it) }
+                selected?.let { day ->
+                    val index = chartDays.indexOfFirst { it.date == day.date }.coerceAtLeast(0)
+                    drawLine(labelColor.copy(alpha = .5f), Offset(points[index].x, chartTop), Offset(points[index].x, chartBottom), strokeWidth = 2f)
+                    drawCircle(lineColor, 8f, points[index])
+                }
+                val labelIndices = if (chartDays.size <= 7) chartDays.indices.toList() else {
+                    (0..4).map { ((chartDays.lastIndex * it) / 4f).roundToInt() }.distinct()
+                }
+                labelIndices.forEach { index ->
+                    val label = chartDays[index].date.format(labelFormatter).uppercase(locale)
+                    val measured = textMeasurer.measure(label, TextStyle(fontSize = 11.sp, color = labelColor))
+                    val left = (points[index].x - measured.size.width / 2f).coerceIn(0f, size.width - measured.size.width)
+                    drawText(measured, topLeft = Offset(left, chartBottom + 6.dp.toPx()))
+                }
             }
-            labelIndices.forEach { index ->
-                val label = days[index].date.format(labelFormatter).uppercase(locale)
-                val measured = textMeasurer.measure(label, TextStyle(fontSize = 11.sp, color = labelColor))
-                val left = (points[index].x - measured.size.width / 2f).coerceIn(0f, size.width - measured.size.width)
-                drawText(measured, topLeft = Offset(left, chartBottom + 6.dp.toPx()))
-            }
+        }
+        selected?.let {
+            Text("${it.date.format(DateTimeFormatter.ofPattern("EEE, d MMM", locale))} · ${duration(it.usageSeconds)}", fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -794,6 +1011,16 @@ private fun comparison(stats: DashboardStats): String = when (val percent = stat
     null -> stringResource(R.string.no_previous_baseline)
     0 -> stringResource(R.string.same_previous_period)
     else -> stringResource(R.string.percent_previous_period, if (percent > 0) "+" else "", percent)
+}
+
+@Composable
+private fun monthComparison(value: Long, previousMonthAverage: Long): String = when {
+    previousMonthAverage == 0L && value == 0L -> stringResource(R.string.same_as_last_month_average, duration(previousMonthAverage))
+    previousMonthAverage == 0L -> stringResource(R.string.no_last_month_average)
+    else -> {
+        val percent = (((value - previousMonthAverage) * 100.0) / previousMonthAverage).toInt()
+        stringResource(R.string.percent_vs_last_month_average, if (percent > 0) "+" else "", percent, duration(previousMonthAverage))
+    }
 }
 
 private fun formatTimestamp(millis: Long): String = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")

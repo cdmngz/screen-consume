@@ -22,7 +22,7 @@ enum class RangePreset(val labelRes: Int) {
 }
 
 enum class AppHistoryPreset(val labelRes: Int) {
-    WEEK(R.string.seven_days), MONTH(R.string.thirty_days), YEAR(R.string.year), ALL(R.string.all_time)
+    DAY(R.string.day), WEEK(R.string.seven_days), MONTH(R.string.thirty_days), YEAR(R.string.year), ALL(R.string.all_time)
 }
 
 data class AppDetailUiState(
@@ -30,6 +30,13 @@ data class AppDetailUiState(
     val preset: AppHistoryPreset,
     val range: DateRange,
     val days: List<DayUsage> = emptyList(),
+    val calendarDays: List<DayUsage> = emptyList(),
+)
+
+data class HeadlineStats(
+    val todaySeconds: Long = 0,
+    val monthAverageSeconds: Long = 0,
+    val previousMonthAverageSeconds: Long = 0,
 )
 
 data class MainUiState(
@@ -37,6 +44,7 @@ data class MainUiState(
     val preset: RangePreset = RangePreset.TODAY,
     val range: DateRange = DateRange.endingToday(1),
     val stats: DashboardStats = DashboardStats(),
+    val headlineStats: HeadlineStats = HeadlineStats(),
     val dailyApps: List<DailyAppUsage> = emptyList(),
     val lastSuccessfulAggregationMillis: Long? = null,
     val operationMessage: String? = null,
@@ -55,6 +63,7 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
     private val operation = MutableStateFlow(OperationState())
     private val selectedApp = MutableStateFlow<AppUsage?>(null)
     private val appHistoryPreset = MutableStateFlow(AppHistoryPreset.WEEK)
+    private val selectedAppRange = MutableStateFlow<DateRange?>(null)
 
     private val range = combine(preset, periodOffset) { selected, offset ->
         val today = LocalDate.now()
@@ -68,20 +77,35 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
                 DateRange(LocalDate.of(year, 1, 1), minOf(LocalDate.of(year, 12, 31), today))
             }
         }
-    }.distinctUntilChanged()
+    }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.Eagerly, DateRange.endingToday(1))
 
     private val rangeDashboard = combine(preset, range.flatMapLatest { selectedRange ->
         combine(repository.dashboard(selectedRange), repository.dailyAppUsage(selectedRange)) { stats, apps -> Triple(selectedRange, stats, apps) }
     }) { selected, data -> RangeDashboard(selected, data.first, data.second, data.third) }
 
-    val state: StateFlow<MainUiState> = combine(access, rangeDashboard, repository.lastSuccessfulAggregationMillis, operation) { granted, dashboard, lastRun, task ->
-        MainUiState(granted, dashboard.preset, dashboard.range, dashboard.stats, dashboard.dailyApps, lastRun, task.message, task.inProgress, false)
+    private val headlineStats = LocalDate.now().let { today ->
+        val currentMonth = YearMonth.from(today)
+        val currentRange = DateRange(currentMonth.atDay(1), today)
+        val previousMonth = currentMonth.minusMonths(1)
+        val previousRange = DateRange(previousMonth.atDay(1), previousMonth.atEndOfMonth())
+        combine(
+            repository.dashboard(DateRange.endingToday(1, today)),
+            repository.dashboard(currentRange),
+            repository.dashboard(previousRange),
+        ) { todayStats, monthStats, previousStats ->
+            HeadlineStats(todayStats.totalSeconds, monthStats.averageDailySeconds, previousStats.averageDailySeconds)
+        }
+    }
+
+    val state: StateFlow<MainUiState> = combine(access, rangeDashboard, headlineStats, repository.lastSuccessfulAggregationMillis, operation) { granted, dashboard, headlines, lastRun, task ->
+        MainUiState(granted, dashboard.preset, dashboard.range, dashboard.stats, headlines, dashboard.dailyApps, lastRun, task.message, task.inProgress, false)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainUiState())
 
-    val appDetail: StateFlow<AppDetailUiState?> = combine(selectedApp, appHistoryPreset, repository.earliestDate) { app, selected, earliest ->
+    val appDetail: StateFlow<AppDetailUiState?> = combine(selectedApp, appHistoryPreset, selectedAppRange, repository.earliestDate) { app, selected, inheritedRange, earliest ->
         if (app == null) null else {
             val today = LocalDate.now()
-            val detailRange = when (selected) {
+            val detailRange = inheritedRange ?: when (selected) {
+                AppHistoryPreset.DAY -> DateRange.endingToday(1, today)
                 AppHistoryPreset.WEEK -> DateRange.endingToday(7, today)
                 AppHistoryPreset.MONTH -> DateRange.endingToday(30, today)
                 AppHistoryPreset.YEAR -> DateRange.endingToday(365, today)
@@ -92,8 +116,10 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
     }.flatMapLatest { selection ->
         if (selection == null) flowOf(null) else {
             val (app, selected, detailRange) = selection
-            repository.appHistory(app.packageName, detailRange)
-                .map { AppDetailUiState(app, selected, detailRange, it) }
+            combine(
+                repository.appHistory(app.packageName, detailRange),
+                repository.appHistory(app.packageName, DateRange(LocalDate.of(2010, 1, 1), LocalDate.now())),
+            ) { days, calendarDays -> AppDetailUiState(app, selected, detailRange, days, calendarDays) }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -101,9 +127,18 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
     fun movePeriod(periodsOlder: Long) {
         periodOffset.value = (periodOffset.value + periodsOlder).coerceAtLeast(0)
     }
-    fun openApp(app: AppUsage) { selectedApp.value = app; appHistoryPreset.value = AppHistoryPreset.WEEK }
-    fun closeApp() { selectedApp.value = null }
-    fun selectAppHistoryPreset(value: AppHistoryPreset) { appHistoryPreset.value = value }
+    fun openApp(app: AppUsage) {
+        selectedApp.value = app
+        selectedAppRange.value = range.value
+        appHistoryPreset.value = when (preset.value) {
+            RangePreset.TODAY -> AppHistoryPreset.DAY
+            RangePreset.WEEK -> AppHistoryPreset.WEEK
+            RangePreset.MONTH -> AppHistoryPreset.MONTH
+            RangePreset.YEAR -> AppHistoryPreset.YEAR
+        }
+    }
+    fun closeApp() { selectedApp.value = null; selectedAppRange.value = null }
+    fun selectAppHistoryPreset(value: AppHistoryPreset) { selectedAppRange.value = null; appHistoryPreset.value = value }
     fun clearOperationMessage() { operation.value = OperationState() }
 
     fun refresh() {

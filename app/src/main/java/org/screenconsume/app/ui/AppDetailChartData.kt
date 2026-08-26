@@ -23,6 +23,34 @@ internal data class FrequencyChartData(
     val cells: List<FrequencyCell>,
 )
 
+internal data class CalendarCell(
+    val date: java.time.LocalDate,
+    val column: Int,
+    val row: Int,
+    val usageSeconds: Long,
+    val intensity: Float,
+)
+
+internal data class CalendarChartData(
+    val firstWeekStart: java.time.LocalDate,
+    val weekCount: Int,
+    val cells: List<CalendarCell>,
+)
+
+internal data class UsageStreak(
+    val start: java.time.LocalDate,
+    val endInclusive: java.time.LocalDate,
+) {
+    val dayCount: Long get() = ChronoUnit.DAYS.between(start, endInclusive) + 1
+}
+
+internal data class UsagePatterns(
+    val mostUsedDay: DayOfWeek?,
+    val weekdaySeconds: Long,
+    val weekendSeconds: Long,
+    val activeDays: Int,
+)
+
 internal fun historyBuckets(
     days: List<DayUsage>,
     range: DateRange,
@@ -76,4 +104,61 @@ internal fun frequencyChartData(
         }
     }
     return FrequencyChartData(weekCount, cells)
+}
+
+internal fun calendarChartData(
+    days: List<DayUsage>,
+    range: DateRange,
+    maximumWeeks: Int = 14,
+): CalendarChartData {
+    require(maximumWeeks > 0)
+    val usageByDate = days.associate { it.date to it.usageSeconds }
+    val lastWeekStart = range.endInclusive.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+    val rangeWeekStart = range.start.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY))
+    val firstWeekStart = maxOf(rangeWeekStart, lastWeekStart.minusWeeks((maximumWeeks - 1).toLong()))
+    val weekCount = ChronoUnit.WEEKS.between(firstWeekStart, lastWeekStart).toInt() + 1
+    val maximum = usageByDate.filterKeys { !it.isBefore(firstWeekStart) && !it.isAfter(range.endInclusive) }
+        .values.maxOrNull()?.coerceAtLeast(1) ?: 1
+    val cells = buildList {
+        repeat(weekCount) { column ->
+            repeat(7) { row ->
+                val date = firstWeekStart.plusWeeks(column.toLong()).plusDays(row.toLong())
+                if (!date.isBefore(range.start) && !date.isAfter(range.endInclusive)) {
+                    val seconds = usageByDate[date] ?: 0
+                    add(CalendarCell(date, column, row, seconds, sqrt(seconds.toFloat() / maximum)))
+                }
+            }
+        }
+    }
+    return CalendarChartData(firstWeekStart, weekCount, cells)
+}
+
+internal fun bestUsageStreaks(days: List<DayUsage>, limit: Int = 5): List<UsageStreak> {
+    require(limit >= 0)
+    val activeDates = days.asSequence().filter { it.usageSeconds > 0 }.map { it.date }.distinct().sorted().toList()
+    if (activeDates.isEmpty() || limit == 0) return emptyList()
+    val streaks = buildList {
+        var start = activeDates.first()
+        var previous = start
+        activeDates.drop(1).forEach { date ->
+            if (date != previous.plusDays(1)) {
+                add(UsageStreak(start, previous))
+                start = date
+            }
+            previous = date
+        }
+        add(UsageStreak(start, previous))
+    }
+    return streaks.sortedWith(compareByDescending<UsageStreak> { it.dayCount }.thenByDescending { it.endInclusive }).take(limit)
+}
+
+internal fun usagePatterns(days: List<DayUsage>): UsagePatterns {
+    val active = days.filter { it.usageSeconds > 0 }
+    val totalsByWeekday = active.groupBy { it.date.dayOfWeek }.mapValues { (_, values) -> values.sumOf { it.usageSeconds } }
+    return UsagePatterns(
+        mostUsedDay = totalsByWeekday.maxByOrNull { it.value }?.key,
+        weekdaySeconds = active.filter { it.date.dayOfWeek.value <= 5 }.sumOf { it.usageSeconds },
+        weekendSeconds = active.filter { it.date.dayOfWeek.value > 5 }.sumOf { it.usageSeconds },
+        activeDays = active.map { it.date }.distinct().size,
+    )
 }

@@ -6,6 +6,7 @@ import org.junit.Test
 import org.screenconsume.app.domain.model.DateRange
 import org.screenconsume.app.domain.model.DayUsage
 import java.time.LocalDate
+import java.time.DayOfWeek
 import java.util.Locale
 
 class AppDetailChartDataTest {
@@ -71,6 +72,52 @@ class AppDetailChartDataTest {
         val error = runCatching { frequencyChartData(emptyList(), range, maximumWeeks = 0) }.exceptionOrNull()
 
         assertTrue(error is IllegalArgumentException)
+    }
+
+    @Test fun `calendar includes date numbers and unused days`() {
+        val monday = LocalDate.of(2026, 1, 5)
+        val range = DateRange(monday, monday.plusDays(6))
+
+        val data = calendarChartData(listOf(DayUsage(monday.plusDays(2), 90)), range)
+
+        assertEquals(7, data.cells.size)
+        assertEquals((5..11).toList(), data.cells.map { it.date.dayOfMonth })
+        assertEquals(90L, data.cells.single { it.date == monday.plusDays(2) }.usageSeconds)
+        assertEquals(0L, data.cells.first().usageSeconds)
+    }
+
+    @Test fun `best streaks rank consecutive active dates`() {
+        val days = listOf(1, 2, 4, 7, 8, 9).map { DayUsage(date(it), 60) }
+
+        val streaks = bestUsageStreaks(days)
+
+        assertEquals(listOf(3L, 2L, 1L), streaks.map { it.dayCount })
+        assertEquals(date(7), streaks.first().start)
+        assertEquals(date(9), streaks.first().endInclusive)
+    }
+
+    @Test fun `best streaks ignore zero usage and respect limit`() {
+        val days = listOf(DayUsage(date(1), 10), DayUsage(date(2), 0), DayUsage(date(3), 10))
+
+        val streaks = bestUsageStreaks(days, limit = 1)
+
+        assertEquals(1, streaks.size)
+        assertEquals(date(3), streaks.single().start)
+    }
+
+    @Test fun `usage patterns separate weekdays and weekends`() {
+        val monday = LocalDate.of(2026, 1, 5)
+        val patterns = usagePatterns(listOf(
+            DayUsage(monday, 120),
+            DayUsage(monday.plusDays(1), 30),
+            DayUsage(monday.plusDays(5), 90),
+            DayUsage(monday.plusDays(6), 0),
+        ))
+
+        assertEquals(DayOfWeek.MONDAY, patterns.mostUsedDay)
+        assertEquals(150L, patterns.weekdaySeconds)
+        assertEquals(90L, patterns.weekendSeconds)
+        assertEquals(3, patterns.activeDays)
     }
 
     private fun date(day: Int) = LocalDate.of(2026, 1, day)
