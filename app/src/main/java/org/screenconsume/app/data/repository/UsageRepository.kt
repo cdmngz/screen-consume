@@ -142,7 +142,7 @@ class UsageRepository(
     private fun resolveApp(packageName: String): Pair<String, String?> = try {
         val info = context.packageManager.getApplicationInfo(packageName, 0)
         val name = context.packageManager.getApplicationLabel(info).toString()
-        val category = if (android.os.Build.VERSION.SDK_INT >= 26) ApplicationInfo.getCategoryTitle(context, info.category)?.toString() else null
+        val category = ApplicationInfo.getCategoryTitle(context, info.category)?.toString()
         name to category
     } catch (_: Exception) { packageName to null }
 }

@@ -33,6 +33,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.CustomAccessibilityAction
@@ -201,9 +202,9 @@ private fun DashboardScreen(
                     Text(stringResource(R.string.most_used_apps), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Text(
                         when {
-                            searchQuery.isNotBlank() -> stringResource(R.string.search_results, filteredApps.size)
-                            showAllApps -> stringResource(R.string.showing_all_apps, state.stats.apps.size)
-                            else -> stringResource(R.string.showing_top_apps, minOf(5, state.stats.apps.size))
+                            searchQuery.isNotBlank() -> pluralStringResource(R.plurals.search_results, filteredApps.size, filteredApps.size)
+                            showAllApps -> pluralStringResource(R.plurals.showing_all_apps, state.stats.apps.size, state.stats.apps.size)
+                            else -> minOf(5, state.stats.apps.size).let { pluralStringResource(R.plurals.showing_top_apps, it, it) }
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -493,7 +494,7 @@ private fun AppRow(app: AppUsage, openApp: (AppUsage) -> Unit) {
             { Image(BitmapPainter(icon), contentDescription = null, modifier = Modifier.size(40.dp)) }
         },
         headlineContent = { Text(displayName, fontWeight = FontWeight.Medium) },
-        supportingContent = { Text(listOfNotNull(category, stringResource(R.string.launch_count, app.launchCount)).joinToString(" • ")) },
+        supportingContent = { Text(listOfNotNull(category, pluralStringResource(R.plurals.launch_count, app.launchCount, app.launchCount)).joinToString(" • ")) },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(duration(app.usageSeconds), fontWeight = FontWeight.Bold)
@@ -741,7 +742,7 @@ private fun BestStreaks(days: List<DayUsage>) {
             ElevatedCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     Row(Modifier.fillMaxWidth()) {
-                        Text(stringResource(R.string.streak_days, streak.dayCount), fontWeight = FontWeight.SemiBold)
+                        Text(pluralStringResource(R.plurals.streak_days, streak.dayCount.toInt(), streak.dayCount), fontWeight = FontWeight.SemiBold)
                         Spacer(Modifier.weight(1f))
                         Text("${streak.start.format(formatter)} – ${streak.endInclusive.format(formatter)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
@@ -767,7 +768,7 @@ private fun UsagePatternsCard(days: List<DayUsage>, range: DateRange) {
                 patterns.mostUsedDay?.getDisplayName(DateTextStyle.FULL, locale) ?: stringResource(R.string.no_usage_period),
             )
             HorizontalDivider()
-            PatternRow(stringResource(R.string.active_days), stringResource(R.string.active_days_value, patterns.activeDays, range.dayCount))
+            PatternRow(stringResource(R.string.active_days), pluralStringResource(R.plurals.active_days_value, range.dayCount.toInt(), patterns.activeDays, range.dayCount))
             HorizontalDivider()
             PatternRow(
                 stringResource(R.string.weekday_weekend),

@@ -1,0 +1,29 @@
+Entiende cómo utilizas tu dispositivo Android sin enviar tu historial de uso a un servicio remoto.
+
+Screen Consume convierte los eventos del Acceso de uso de Android en resúmenes diarios compactos que se guardan localmente en tu teléfono. Explora el tiempo de pantalla de hoy, las medias del mes actual, las tendencias de cada app, calendarios interactivos, rachas y patrones entre días laborables y fines de semana.
+
+FUNCIONES PRINCIPALES
+
+• Desgloses de uso diarios, semanales, mensuales y anuales
+• Tiempo de pantalla de hoy y media diaria del mes actual
+• Comparaciones con la media diaria del mes anterior
+• Totales de apps con búsqueda y aperturas observadas
+• Tendencias detalladas y calendario de uso por app
+• Rachas de días consecutivos y resúmenes de patrones
+• Exportación CSV y JSON mediante el selector de documentos de Android
+• Copias de seguridad cifradas con contraseña y restauración
+• Temas claro y oscuro automáticos
+• Interfaz en inglés y español
+
+PRIVACIDAD
+
+Screen Consume no incluye cuentas, publicidad, analítica, telemetría ni permiso de Internet. Los eventos de uso sin procesar y sus horas exactas se convierten en datos diarios agregados; no se guardan como un registro de interacciones.
+
+Tu información solo sale de la app cuando eliges explícitamente un destino para una exportación o copia de seguridad mediante el selector de documentos de Android. Ese destino puede pertenecer a otra app local o con almacenamiento en la nube que tú elijas.
+
+ACCESO DE USO
+
+El Acceso de uso de Android es necesario para calcular los resúmenes. Se concede explícitamente en los ajustes de Android y se puede revocar en cualquier momento. El historial disponible puede variar según la versión de Android, el fabricante y los eventos que conserve el sistema operativo.
+
+Screen Consume es un proyecto independiente y de código abierto. No está afiliado ni respaldado por Google, Android o Digital Wellbeing.
+

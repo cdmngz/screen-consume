@@ -26,5 +26,52 @@ class UsageAggregatorTest {
         assertEquals(30, result.morningUsageSeconds)
         assertEquals(30, result.afternoonUsageSeconds)
     }
-}
 
+    @Test fun `clips intervals to the requested calendar day`() {
+        val dayStart = date.atStartOfDay(zone).toInstant().toEpochMilli()
+        val dayEnd = date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+
+        val result = aggregator.aggregate(
+            date,
+            listOf(UsageInterval("example.app", dayStart - 30_000, dayEnd + 30_000)),
+            emptyMap(),
+        ).single()
+
+        assertEquals(24 * 60 * 60L, result.usageSeconds)
+        assertEquals(6 * 60 * 60L, result.morningUsageSeconds)
+        assertEquals(6 * 60 * 60L, result.afternoonUsageSeconds)
+        assertEquals(4 * 60 * 60L, result.eveningUsageSeconds)
+        assertEquals(8 * 60 * 60L, result.nightUsageSeconds)
+    }
+
+    @Test fun `ignores intervals outside the requested day and zero length intervals`() {
+        val dayStart = date.atStartOfDay(zone).toInstant().toEpochMilli()
+        val result = aggregator.aggregate(
+            date,
+            listOf(
+                UsageInterval("before", dayStart - 60_000, dayStart - 30_000),
+                UsageInterval("zero", dayStart, dayStart),
+            ),
+            mapOf("before" to 3, "zero" to 2),
+        )
+
+        assertEquals(emptyList<Any>(), result)
+    }
+
+    @Test fun `aggregates packages independently`() {
+        val start = date.atTime(18, 0).atZone(zone).toInstant().toEpochMilli()
+
+        val result = aggregator.aggregate(
+            date,
+            listOf(
+                UsageInterval("first", start, start + 10_000),
+                UsageInterval("second", start, start + 20_000),
+            ),
+            mapOf("first" to 1, "second" to 2),
+        ).associateBy { it.packageName }
+
+        assertEquals(10, result.getValue("first").eveningUsageSeconds)
+        assertEquals(20, result.getValue("second").eveningUsageSeconds)
+        assertEquals(2, result.getValue("second").launchCount)
+    }
+}

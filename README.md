@@ -39,7 +39,7 @@ The current app includes:
 - Plaintext CSV and JSON export for a selected date range.
 - Idempotent JSON restore with input validation and resource limits.
 - Password-encrypted full-history backup and restore.
-- English and Spanish interfaces selected automatically from the device language.
+- English, Spanish, Italian, French, Portuguese, and German interfaces selected automatically from the device language.
 - Automatic light and dark themes based on the device setting, including theme-aware chart and system-bar colors.
 - A dashboard with period analytics and app search/expansion, full-screen per-app analytics, and a separate settings view.
 
@@ -158,7 +158,7 @@ Room instrumentation tests require a connected device or emulator:
 
 ## Tests and coverage
 
-The repository currently includes 16 JVM unit tests and one connected Android test. The JVM suite covers usage aggregation, time-of-day boundaries, dashboard analytics, CSV serialization, encrypted-backup round trips, and app-detail analytics calculations. Detail tests verify empty-day handling, calendar date placement and intensity, consecutive-use streak ranking, weekday/weekend pattern totals, history bucketing primitives, and visible-week limits. The connected Room test verifies that repeated daily upserts do not create duplicate records.
+The repository currently includes 27 JVM unit tests and one connected Android test. The JVM suite covers usage aggregation, calendar-day clipping and time-of-day boundaries, dashboard analytics, CSV/JSON portability and validation, encrypted-backup handling, and app-detail analytics calculations. Detail tests verify empty-day handling, calendar date placement and intensity, consecutive-use streak ranking, weekday/weekend pattern totals, history bucketing primitives, and visible-week limits. The connected Room test verifies that repeated daily upserts do not create duplicate records.
 
 Run the JVM suite and generate the JaCoCo HTML report with:
 

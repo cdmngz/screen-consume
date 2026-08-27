@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- API 36 is the repository's supported SDK and current Google Play target requirement. -->
+    <issue id="OldTargetApi" severity="ignore" />
+
+    <!-- Dependency upgrades are reviewed deliberately rather than driven by lint freshness notices. -->
+    <issue id="AndroidGradlePluginVersion" severity="ignore" />
+    <issue id="GradleDependency" severity="ignore" />
+
+    <!-- Adaptive icon XML is only accepted by AAPT in a v26-qualified resource directory. -->
+    <issue id="ObsoleteSdkInt">
+        <ignore path="src/main/res/mipmap-anydpi-v26" />
+    </issue>
+
+    <!-- Retained as the high-resolution source artwork for launcher/store asset generation. -->
+    <issue id="IconLauncherShape">
+        <ignore path="src/main/res/drawable-nodpi/ic_launcher_artwork.png" />
+    </issue>
+    <issue id="UnusedResources">
+        <ignore path="src/main/res/drawable-nodpi/ic_launcher_artwork.png" />
+    </issue>
+</lint>
