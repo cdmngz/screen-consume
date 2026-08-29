@@ -10,6 +10,15 @@ import java.time.temporal.TemporalAdjusters
 import java.util.Locale
 import kotlin.math.sqrt
 
+internal fun horizontalPageOffset(horizontalDistance: Float, threshold: Float): Long? = when {
+    horizontalDistance >= threshold -> 1L
+    horizontalDistance <= -threshold -> -1L
+    else -> null
+}
+
+internal fun yAxisLabelValues(maximum: Long): List<Long?> =
+    (3 downTo 1).map { step -> (maximum * step / 3).takeIf { it > 0 } }
+
 internal data class HistoryBucket(val label: String, val usageSeconds: Long)
 
 internal data class FrequencyCell(

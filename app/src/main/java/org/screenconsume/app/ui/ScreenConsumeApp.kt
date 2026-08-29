@@ -11,6 +11,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -97,7 +98,13 @@ fun ScreenConsumeApp(viewModel: MainViewModel, openUsageSettings: () -> Unit) {
             Box(Modifier.padding(padding).fillMaxSize()) {
                 when {
                     showingSettings -> SettingsScreen(state, viewModel, onBack = { showingSettings = false })
-                    appDetail != null -> AppDetailScreen(appDetail!!, state.lastSuccessfulAggregationMillis, viewModel::selectAppHistoryPreset, viewModel::closeApp)
+                    appDetail != null -> AppDetailScreen(
+                        appDetail!!,
+                        state.lastSuccessfulAggregationMillis,
+                        viewModel::selectAppHistoryPreset,
+                        viewModel::moveAppHistoryYear,
+                        viewModel::closeApp,
+                    )
                     !state.hasUsageAccess -> UsageAccessEmptyState(openUsageSettings, openAppSettings = { showingSettings = true })
                     else -> DashboardScreen(
                         state,
@@ -528,7 +535,13 @@ private fun appCategory(context: android.content.Context, info: ApplicationInfo)
     ApplicationInfo.getCategoryTitle(context, info.category)?.toString()
 
 @Composable
-private fun AppDetailScreen(detail: AppDetailUiState, lastAggregationMillis: Long?, select: (AppHistoryPreset) -> Unit, onBack: () -> Unit) {
+private fun AppDetailScreen(
+    detail: AppDetailUiState,
+    lastAggregationMillis: Long?,
+    select: (AppHistoryPreset) -> Unit,
+    moveYear: (Long) -> Unit,
+    onBack: () -> Unit,
+) {
     BackHandler(onBack = onBack)
     val installedApp = installedApp(detail.app.packageName)
     val name = installedApp?.label?.takeIf(String::isNotBlank) ?: detail.app.displayName
@@ -574,9 +587,14 @@ private fun AppDetailScreen(detail: AppDetailUiState, lastAggregationMillis: Lon
             }
         }
         else item {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                UsageLineChart(detail.days, detail.range, Modifier.fillMaxWidth().height(205.dp))
-                Text(stringResource(R.string.each_point_recorded_usage), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            ElevatedCard(Modifier.fillMaxWidth()) {
+                UsageLineChart(
+                    detail.days,
+                    detail.range,
+                    Modifier.fillMaxWidth().height(244.dp).padding(14.dp),
+                    onYearSwipe = if (detail.preset == AppHistoryPreset.YEAR) moveYear else null,
+                    canMoveToNewerYear = detail.canMoveToNewerYear,
+                )
             }
         }
         item {
@@ -589,14 +607,13 @@ private fun AppDetailScreen(detail: AppDetailUiState, lastAggregationMillis: Lon
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 DetailSectionTitle(stringResource(R.string.best_streaks))
-                Text(stringResource(R.string.streaks_explanation), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 BestStreaks(detail.days)
             }
         }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 DetailSectionTitle(stringResource(R.string.usage_patterns))
-                UsagePatternsCard(detail.days, detail.range)
+                UsagePatternsCard(detail.days)
             }
         }
     }
@@ -614,7 +631,6 @@ private fun UsageCalendar(days: List<DayUsage>) {
     val today = LocalDate.now()
     val earliest = LocalDate.of(2010, 1, 1)
     var pageEnd by remember { mutableStateOf(today) }
-    var calendarDrag by remember { mutableFloatStateOf(0f) }
     val pageStart = maxOf(earliest, pageEnd.minusWeeks(13).with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY)))
     val range = DateRange(pageStart, pageEnd)
     val data = remember(days, range) { calendarChartData(days, range) }
@@ -635,14 +651,22 @@ private fun UsageCalendar(days: List<DayUsage>) {
     }
     val previousDay = stringResource(R.string.previous_day)
     val nextDay = stringResource(R.string.next_day)
+    val olderPeriod = stringResource(R.string.older_calendar_period)
+    val newerPeriod = stringResource(R.string.newer_calendar_period)
     val chartModifier = Modifier.fillMaxWidth().height(230.dp).semantics {
         contentDescription = description
         stateDescription = selectedDescription
-        customActions = listOf(
+        customActions = listOfNotNull(
             CustomAccessibilityAction(previousDay) { moveSelection(-1) },
             CustomAccessibilityAction(nextDay) { moveSelection(1) },
+            (pageStart > earliest).takeIf { it }?.let {
+                CustomAccessibilityAction(olderPeriod) { pageEnd = maxOf(earliest, pageEnd.minusWeeks(14)); true }
+            },
+            (pageEnd < today).takeIf { it }?.let {
+                CustomAccessibilityAction(newerPeriod) { pageEnd = minOf(today, pageEnd.plusWeeks(14)); true }
+            },
         )
-    }.pointerInput(data) {
+    }.pointerInput(data, pageEnd) {
         fun selectAt(position: Offset) {
             val plotLeft = 25.dp.toPx()
             val plotTop = 22.dp.toPx()
@@ -652,43 +676,24 @@ private fun UsageCalendar(days: List<DayUsage>) {
         }
         awaitEachGesture {
             val down = awaitFirstDown()
+            var lastX = down.position.x
             selectAt(down.position)
             do {
                 val event = awaitPointerEvent()
-                event.changes.firstOrNull()?.let { selectAt(it.position) }
+                event.changes.firstOrNull()?.let { change ->
+                    lastX = change.position.x
+                    selectAt(change.position)
+                }
                 event.changes.forEach { it.consume() }
             } while (event.changes.any { it.pressed })
+            horizontalPageOffset(lastX - down.position.x, size.width * .3f)?.let { offset ->
+                if (offset > 0 && pageStart > earliest) pageEnd = maxOf(earliest, pageEnd.minusWeeks(14))
+                else if (offset < 0 && pageEnd < today) pageEnd = minOf(today, pageEnd.plusWeeks(14))
+            }
         }
     }
     ElevatedCard(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(
-                Modifier.fillMaxWidth().pointerInput(pageEnd) {
-                    detectHorizontalDragGestures(
-                        onDragStart = { calendarDrag = 0f },
-                        onHorizontalDrag = { _, amount -> calendarDrag += amount },
-                        onDragEnd = {
-                            if (calendarDrag < -60f && pageStart > earliest) pageEnd = maxOf(earliest, pageEnd.minusWeeks(14))
-                            else if (calendarDrag > 60f && pageEnd < today) pageEnd = minOf(today, pageEnd.plusWeeks(14))
-                        },
-                    )
-                },
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                UiIconButton(
-                    UiIcon.BACK,
-                    stringResource(R.string.older_calendar_period),
-                    { pageEnd = maxOf(earliest, pageEnd.minusWeeks(14)) },
-                    enabled = pageStart > earliest,
-                )
-                Text(formatRange(range), Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                UiIconButton(
-                    UiIcon.FORWARD,
-                    stringResource(R.string.newer_calendar_period),
-                    { pageEnd = minOf(today, pageEnd.plusWeeks(14)) },
-                    enabled = pageEnd < today,
-                )
-            }
             Canvas(chartModifier) {
                 val gap = 2.dp.toPx()
                 val plotLeft = 25.dp.toPx()
@@ -738,18 +743,32 @@ private fun BestStreaks(days: List<DayUsage>) {
     }
     val maximum = streaks.maxOf { it.dayCount }.toFloat()
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        streaks.take(5).forEachIndexed { index, streak ->
+        streaks.take(5).forEach { streak ->
             ElevatedCard(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Row(Modifier.fillMaxWidth()) {
-                        Text(pluralStringResource(R.plurals.streak_days, streak.dayCount.toInt(), streak.dayCount), fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.weight(1f))
-                        Text("${streak.start.format(formatter)} – ${streak.endInclusive.format(formatter)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                    LinearProgressIndicator(
-                        progress = { streak.dayCount / maximum },
-                        modifier = Modifier.fillMaxWidth().height(if (index == 0) 9.dp else 6.dp),
+                    Text(
+                        pluralStringResource(R.plurals.streak_days, streak.dayCount.toInt(), streak.dayCount),
+                        Modifier.fillMaxWidth(),
+                        fontWeight = FontWeight.SemiBold,
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     )
+                    BoxWithConstraints(
+                        Modifier.fillMaxWidth().height(28.dp).background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(14.dp)),
+                    ) {
+                        val progress = streak.dayCount / maximum
+                        val filledWidth = (maxWidth * progress).coerceAtLeast(minOf(132.dp, maxWidth))
+                        Box(
+                            Modifier.width(filledWidth).fillMaxHeight().background(MaterialTheme.colorScheme.primary, RoundedCornerShape(14.dp)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                "${streak.start.format(formatter)} – ${streak.endInclusive.format(formatter)}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onPrimary,
+                                maxLines = 1,
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -757,7 +776,7 @@ private fun BestStreaks(days: List<DayUsage>) {
 }
 
 @Composable
-private fun UsagePatternsCard(days: List<DayUsage>, range: DateRange) {
+private fun UsagePatternsCard(days: List<DayUsage>) {
     val locale = LocalConfiguration.current.locales[0]
     val patterns = remember(days) { usagePatterns(days) }
     val total = patterns.weekdaySeconds + patterns.weekendSeconds
@@ -767,8 +786,6 @@ private fun UsagePatternsCard(days: List<DayUsage>, range: DateRange) {
                 stringResource(R.string.most_used_day),
                 patterns.mostUsedDay?.getDisplayName(DateTextStyle.FULL, locale) ?: stringResource(R.string.no_usage_period),
             )
-            HorizontalDivider()
-            PatternRow(stringResource(R.string.active_days), pluralStringResource(R.plurals.active_days_value, range.dayCount.toInt(), patterns.activeDays, range.dayCount))
             HorizontalDivider()
             PatternRow(
                 stringResource(R.string.weekday_weekend),
@@ -795,10 +812,17 @@ private fun PatternRow(label: String, value: String, description: String? = null
 }
 
 @Composable
-private fun UsageLineChart(days: List<DayUsage>, range: DateRange, modifier: Modifier = Modifier) {
+private fun UsageLineChart(
+    days: List<DayUsage>,
+    range: DateRange,
+    modifier: Modifier = Modifier,
+    onYearSwipe: ((Long) -> Unit)? = null,
+    canMoveToNewerYear: Boolean = false,
+) {
     val lineColor = MaterialTheme.colorScheme.primary
     val gridColor = MaterialTheme.colorScheme.outlineVariant
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val labelBackground = MaterialTheme.colorScheme.surfaceContainerLow
     val textMeasurer = rememberTextMeasurer()
     val locale = LocalConfiguration.current.locales[0]
     val usageByDate = remember(days) { days.associate { it.date to it.usageSeconds } }
@@ -808,7 +832,14 @@ private fun UsageLineChart(days: List<DayUsage>, range: DateRange, modifier: Mod
     }
     var selected by remember(chartDays) { mutableStateOf(chartDays.lastOrNull { it.usageSeconds > 0 } ?: chartDays.lastOrNull()) }
     val labelFormatter = remember(range, locale) {
-        DateTimeFormatter.ofPattern(if (range.dayCount <= 7) "EEEEE" else "d/M", locale)
+        DateTimeFormatter.ofPattern(
+            when {
+                range.dayCount <= 7 -> "EEEEE"
+                range.start.dayOfYear == 1 && range.start.year == range.endInclusive.year -> "MMM"
+                else -> "d/M"
+            },
+            locale,
+        )
     }
     fun moveSelection(offset: Long): Boolean {
         val current = selected ?: return false
@@ -817,6 +848,8 @@ private fun UsageLineChart(days: List<DayUsage>, range: DateRange, modifier: Mod
     }
     val previousDay = stringResource(R.string.previous_day)
     val nextDay = stringResource(R.string.next_day)
+    val previousYear = stringResource(R.string.previous_year)
+    val nextYear = stringResource(R.string.next_year)
     val chartDescription = stringResource(R.string.usage_trend_chart_description)
     val selectedDescription = selected?.let { "${it.date.format(DateTimeFormatter.ofPattern("EEE, d MMM", locale))}, ${duration(it.usageSeconds)}" }.orEmpty()
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -824,40 +857,65 @@ private fun UsageLineChart(days: List<DayUsage>, range: DateRange, modifier: Mod
             Modifier.fillMaxWidth().weight(1f).semantics {
                 contentDescription = chartDescription
                 stateDescription = selectedDescription
-                customActions = listOf(
+                customActions = listOfNotNull(
                     CustomAccessibilityAction(previousDay) { moveSelection(-1) },
                     CustomAccessibilityAction(nextDay) { moveSelection(1) },
+                    onYearSwipe?.let { CustomAccessibilityAction(previousYear) { it(1); true } },
+                    onYearSwipe?.takeIf { canMoveToNewerYear }?.let { CustomAccessibilityAction(nextYear) { it(-1); true } },
                 )
-            }.pointerInput(chartDays) {
+            }.pointerInput(chartDays, onYearSwipe, canMoveToNewerYear) {
                 fun selectAt(x: Float) {
-                    val index = if (chartDays.size <= 1) 0 else ((x / size.width) * chartDays.lastIndex).roundToInt().coerceIn(0, chartDays.lastIndex)
+                    val width = size.width.coerceAtLeast(1).toFloat()
+                    val index = if (chartDays.size <= 1) 0 else ((x / width) * chartDays.lastIndex).roundToInt().coerceIn(0, chartDays.lastIndex)
                     selected = chartDays.getOrNull(index)
                 }
                 awaitEachGesture {
                     val down = awaitFirstDown()
+                    var lastX = down.position.x
                     selectAt(down.position.x)
                     do {
                         val event = awaitPointerEvent()
-                        event.changes.firstOrNull()?.let { selectAt(it.position.x) }
+                        event.changes.firstOrNull()?.let { change ->
+                            lastX = change.position.x
+                            selectAt(lastX)
+                        }
                         event.changes.forEach { it.consume() }
                     } while (event.changes.any { it.pressed })
+                    onYearSwipe?.let { navigate ->
+                        horizontalPageOffset(lastX - down.position.x, size.width * .3f)?.let { offset ->
+                            if (offset > 0 || canMoveToNewerYear) navigate(offset)
+                        }
+                    }
                 }
             },
         ) {
             val chartTop = 6.dp.toPx()
             val chartBottom = size.height - 24.dp.toPx()
+            val plotLeft = 0f
+            val plotWidth = (size.width - plotLeft).coerceAtLeast(1f)
             val chartHeight = (chartBottom - chartTop).coerceAtLeast(1f)
+            val maximum = chartDays.maxOfOrNull { it.usageSeconds }?.coerceAtLeast(1) ?: 1
+            val yAxisLabels = yAxisLabelValues(maximum)
             repeat(4) { index ->
                 val y = chartTop + chartHeight * index / 3f
-                drawLine(gridColor, Offset(0f, y), Offset(size.width, y), strokeWidth = 2f)
+                drawLine(gridColor, Offset(plotLeft, y), Offset(size.width, y), strokeWidth = 2f)
+                val value = yAxisLabels.getOrNull(index) ?: return@repeat
+                val measured = textMeasurer.measure(duration(value), TextStyle(fontSize = 10.sp, color = labelColor))
+                val labelLeft = 4.dp.toPx()
+                val labelTop = (y - measured.size.height / 2f).coerceIn(0f, size.height - measured.size.height)
+                drawRect(
+                    labelBackground,
+                    topLeft = Offset(labelLeft - 2.dp.toPx(), labelTop - 1.dp.toPx()),
+                    size = androidx.compose.ui.geometry.Size(measured.size.width + 4.dp.toPx(), measured.size.height + 2.dp.toPx()),
+                )
+                drawText(measured, topLeft = Offset(labelLeft, labelTop))
             }
             if (chartDays.isNotEmpty()) {
-                val maximum = chartDays.maxOf { it.usageSeconds }.coerceAtLeast(1)
                 val denominator = chartDays.lastIndex.coerceAtLeast(1)
                 val points = chartDays.mapIndexed { index, day ->
-                    val x = if (chartDays.size <= 1) size.width / 2f else size.width * index / denominator
+                    val x = if (chartDays.size <= 1) plotLeft + plotWidth / 2f else plotLeft + plotWidth * index / denominator
                     val y = chartBottom - (day.usageSeconds.toFloat() / maximum) * chartHeight
-                    Offset(x.coerceIn(0f, size.width), y)
+                    Offset(x.coerceIn(plotLeft, size.width), y)
                 }
                 points.zipWithNext().forEach { (start, end) -> drawLine(lineColor, start, end, strokeWidth = 4f) }
                 if (chartDays.size <= 31) points.forEach { drawCircle(lineColor, 5f, it) }
@@ -866,7 +924,11 @@ private fun UsageLineChart(days: List<DayUsage>, range: DateRange, modifier: Mod
                     drawLine(labelColor.copy(alpha = .5f), Offset(points[index].x, chartTop), Offset(points[index].x, chartBottom), strokeWidth = 2f)
                     drawCircle(lineColor, 8f, points[index])
                 }
-                val labelIndices = if (chartDays.size <= 7) chartDays.indices.toList() else {
+                val isCalendarYear = range.start.dayOfYear == 1 && range.start.year == range.endInclusive.year
+                val labelIndices = if (chartDays.size <= 7) chartDays.indices.toList() else if (isCalendarYear) {
+                    chartDays.indices.filter { index -> chartDays[index].date.dayOfMonth == 1 && chartDays[index].date.monthValue in setOf(1, 4, 7, 10) }
+                        .plus(chartDays.lastIndex).distinct()
+                } else {
                     (0..4).map { ((chartDays.lastIndex * it) / 4f).roundToInt() }.distinct()
                 }
                 labelIndices.forEach { index ->

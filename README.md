@@ -12,7 +12,7 @@ Digital wellbeing tools can help people understand and adjust their relationship
 
 The proof of concept explores several ideas:
 
-- Swipeable daily, weekly, calendar-month, and calendar-year dashboard views, with all-time and custom ranges available for app history or export where appropriate.
+- Swipeable daily, weekly, calendar-month, and calendar-year dashboard views, with custom ranges available for export.
 - A stable headline summary for today's total screen time and the current calendar month's daily average, with both compared directly against the previous month's daily average.
 - App, category, launch-count, interactive daily-trend, calendar, streak, usage-pattern, and broad time-of-day perspectives.
 - Indefinite local retention of compact daily aggregates, controlled by the device owner.
@@ -29,10 +29,10 @@ The current app includes:
 - An interactive stacked usage chart: time-of-day buckets for today, daily buckets for a week, weekly buckets for a month, and monthly buckets for a year. Each bucket ranks the top three apps and groups the remainder as **Other**; tapping a bar reveals exact app names, durations, and totals.
 - Today's total screen time and the current calendar month's daily average, each with a plain-language definition and a direct percentage/duration comparison against the previous month's daily average. The selected breakdown period does not change these headline definitions.
 - Daily per-app aggregation with morning, afternoon, evening, and night totals.
-- A dedicated per-app detail view that inherits the dashboard's exact selected period and also offers day, 7-day, 30-day, year, and all-time presets.
-- A scrubbable per-app daily trend chart and independently pageable calendar: dragging across either visualization reveals the selected date and duration. The calendar includes date numbers, weekday labels, month markers, usage-intensity shading, and navigation back to 2010 even when the selected analytics preset is shorter.
-- Ranked consecutive-use streaks with explicit context that a longer streak is not necessarily desirable.
-- Distinct per-app usage-pattern summaries for the most-used day, active-day coverage, and weekday/weekend usage share.
+- A dedicated per-app detail view that opens to 7 days and offers 7-day, 30-day, and calendar-year presets. Swiping across a calendar-year chart explores earlier or newer years, while navigation remains bounded at the current year so future dates are never exposed.
+- A scrubbable per-app daily trend chart in a Material card with labeled time and date axes, plus an independently pageable calendar. One finger inspects dates in either visualization; as on the dashboard, a longer swipe right shows an older period and a longer swipe left returns toward newer periods. Calendar-year charts begin at January and show quarterly month markers for orientation. The calendar includes date numbers, weekday labels, month markers, usage-intensity shading, and navigation back to 2010 even when the selected analytics preset is shorter.
+- Ranked consecutive-use streaks with compact date labels inside their progress bars.
+- Distinct per-app usage-pattern summaries for the most-used day and weekday/weekend usage share.
 - Screen-reader previous/next-date actions for the interactive trend and calendar, plus text summaries of the selected values.
 - Explicit messaging when a blank day means only “no recorded usage” or collection health suggests that part of a period may be incomplete.
 - Periodic, idempotent reaggregation of recent days with collection-health status.
@@ -158,7 +158,7 @@ Room instrumentation tests require a connected device or emulator:
 
 ## Tests and coverage
 
-The repository currently includes 27 JVM unit tests and one connected Android test. The JVM suite covers usage aggregation, calendar-day clipping and time-of-day boundaries, dashboard analytics, CSV/JSON portability and validation, encrypted-backup handling, and app-detail analytics calculations. Detail tests verify empty-day handling, calendar date placement and intensity, consecutive-use streak ranking, weekday/weekend pattern totals, history bucketing primitives, and visible-week limits. The connected Room test verifies that repeated daily upserts do not create duplicate records.
+The repository currently includes 34 JVM unit tests and one connected Android test. The JVM suite covers usage aggregation, calendar-day clipping and time-of-day boundaries, dashboard analytics, CSV/JSON portability and validation, encrypted-backup handling, and app-detail analytics calculations. Detail tests verify empty-day handling, calendar date placement and intensity, consecutive-use streak ranking, weekday/weekend pattern totals, history bucketing primitives, visible-week limits, calendar-year boundaries, protection against future-year navigation, dashboard-consistent paging direction, and Y-axis labels. The connected Room test verifies that repeated daily upserts do not create duplicate records.
 
 Run the JVM suite and generate the JaCoCo HTML report with:
 

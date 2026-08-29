@@ -22,7 +22,7 @@ enum class RangePreset(val labelRes: Int) {
 }
 
 enum class AppHistoryPreset(val labelRes: Int) {
-    DAY(R.string.day), WEEK(R.string.seven_days), MONTH(R.string.thirty_days), YEAR(R.string.year), ALL(R.string.all_time)
+    WEEK(R.string.seven_days), MONTH(R.string.thirty_days), YEAR(R.string.year)
 }
 
 data class AppDetailUiState(
@@ -31,6 +31,7 @@ data class AppDetailUiState(
     val range: DateRange,
     val days: List<DayUsage> = emptyList(),
     val calendarDays: List<DayUsage> = emptyList(),
+    val canMoveToNewerYear: Boolean = false,
 )
 
 data class HeadlineStats(
@@ -63,7 +64,7 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
     private val operation = MutableStateFlow(OperationState())
     private val selectedApp = MutableStateFlow<AppUsage?>(null)
     private val appHistoryPreset = MutableStateFlow(AppHistoryPreset.WEEK)
-    private val selectedAppRange = MutableStateFlow<DateRange?>(null)
+    private val appHistoryYearOffset = MutableStateFlow(0L)
 
     private val range = combine(preset, periodOffset) { selected, offset ->
         val today = LocalDate.now()
@@ -101,25 +102,24 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
         MainUiState(granted, dashboard.preset, dashboard.range, dashboard.stats, headlines, dashboard.dailyApps, lastRun, task.message, task.inProgress, false)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainUiState())
 
-    val appDetail: StateFlow<AppDetailUiState?> = combine(selectedApp, appHistoryPreset, selectedAppRange, repository.earliestDate) { app, selected, inheritedRange, earliest ->
+    val appDetail: StateFlow<AppDetailUiState?> = combine(selectedApp, appHistoryPreset, appHistoryYearOffset) { app, selected, yearOffset ->
         if (app == null) null else {
             val today = LocalDate.now()
-            val detailRange = inheritedRange ?: when (selected) {
-                AppHistoryPreset.DAY -> DateRange.endingToday(1, today)
+            val detailRange = when (selected) {
                 AppHistoryPreset.WEEK -> DateRange.endingToday(7, today)
                 AppHistoryPreset.MONTH -> DateRange.endingToday(30, today)
-                AppHistoryPreset.YEAR -> DateRange.endingToday(365, today)
-                AppHistoryPreset.ALL -> DateRange(earliest ?: today, today)
+                AppHistoryPreset.YEAR -> appHistoryYearRange(today, yearOffset)
             }
-            Triple(app, selected, detailRange)
+            Triple(app, selected, detailRange) to yearOffset
         }
     }.flatMapLatest { selection ->
         if (selection == null) flowOf(null) else {
-            val (app, selected, detailRange) = selection
+            val (details, yearOffset) = selection
+            val (app, selected, detailRange) = details
             combine(
                 repository.appHistory(app.packageName, detailRange),
                 repository.appHistory(app.packageName, DateRange(LocalDate.of(2010, 1, 1), LocalDate.now())),
-            ) { days, calendarDays -> AppDetailUiState(app, selected, detailRange, days, calendarDays) }
+            ) { days, calendarDays -> AppDetailUiState(app, selected, detailRange, days, calendarDays, yearOffset > 0) }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -129,16 +129,14 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
     }
     fun openApp(app: AppUsage) {
         selectedApp.value = app
-        selectedAppRange.value = range.value
-        appHistoryPreset.value = when (preset.value) {
-            RangePreset.TODAY -> AppHistoryPreset.DAY
-            RangePreset.WEEK -> AppHistoryPreset.WEEK
-            RangePreset.MONTH -> AppHistoryPreset.MONTH
-            RangePreset.YEAR -> AppHistoryPreset.YEAR
-        }
+        appHistoryPreset.value = AppHistoryPreset.WEEK
+        appHistoryYearOffset.value = 0
     }
-    fun closeApp() { selectedApp.value = null; selectedAppRange.value = null }
-    fun selectAppHistoryPreset(value: AppHistoryPreset) { selectedAppRange.value = null; appHistoryPreset.value = value }
+    fun closeApp() { selectedApp.value = null; appHistoryYearOffset.value = 0 }
+    fun selectAppHistoryPreset(value: AppHistoryPreset) { appHistoryYearOffset.value = 0; appHistoryPreset.value = value }
+    fun moveAppHistoryYear(yearsOlder: Long) {
+        appHistoryYearOffset.value = (appHistoryYearOffset.value + yearsOlder).coerceAtLeast(0)
+    }
     fun clearOperationMessage() { operation.value = OperationState() }
 
     fun refresh() {
@@ -171,4 +169,12 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>): T = MainViewModel(repository) as T
     }
+}
+
+internal fun appHistoryYearRange(today: LocalDate, yearsOlder: Long): DateRange {
+    val year = today.year - yearsOlder.coerceAtLeast(0).toInt()
+    return DateRange(
+        LocalDate.of(year, 1, 1),
+        if (year == today.year) today else LocalDate.of(year, 12, 31),
+    )
 }
