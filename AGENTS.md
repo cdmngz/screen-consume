@@ -34,11 +34,12 @@ Preserve separation between platform collection, persistence, pure analytics, UI
 
 ## Build and verification
 
-Use Java 17 and Android SDK 36. Prefer the checked-in wrapper.
+Use Android Studio's bundled JBR to run Gradle (currently JDK 25.0.3). Set Android Studio's Gradle JDK and terminal `JAVA_HOME` to the same installation. Keep Java source/target compatibility and Kotlin JVM target at 17. Use Android SDK 37 for compilation; target SDK remains 36 and minimum SDK remains 26. Prefer the checked-in wrapper. Revalidate the build when upgrading the bundled JBR.
 
 ```sh
 ./gradlew testDebugUnitTest
 ./gradlew lintDebug
+./gradlew :app:detektDebug :app:detektRelease
 ./gradlew assembleDebug
 ./gradlew connectedDebugAndroidTest       # connected API 26+ device/emulator required
 ./gradlew lintRelease assembleRelease
@@ -50,6 +51,8 @@ Run checks proportional to the change:
 - Room changes: JVM tests, connected tests, and deliberate schema/migration review.
 - UI or Android integration changes: unit tests, lint, debug build, and relevant device checks.
 - Manifest, build, shrinking, or release changes: lint and assemble both affected variants; inspect the merged release manifest and APK when security boundaries are involved.
+- When removing or renaming UI labels, update all six locale files together. Lint treats unused resources and translation/format errors as failures; do not add broad suppressions or baselines.
+- Run variant Detekt tasks for Kotlin changes; the focused rules catch unused imports and private declarations. Review non-private APIs with IDE usage inspection before deletion, accounting for Room/KSP and Android entry points.
 - Before handing off any code change, run `git diff --check` and report checks that could not run.
 
 `assembleRelease` currently creates an unsigned release artifact. Signing is an explicit local release step; do not claim an unsigned APK is installable.

@@ -3,33 +3,86 @@
     <string name="settings">Definições</string>
     <string name="screen_time_stays_yours">O seu tempo de ecrã continua a ser seu</string>
     <string name="usage_access_explanation">%1$s precisa de Acesso à utilização para criar totais diários. Guarda apenas agregados locais, não interações individuais nem horas exatas de abertura das aplicações.</string>
-    <string name="secure">Seguro</string><string name="local_data">Dados locais</string><string name="no_internet_connection">Sem ligação à Internet</string>
+    <string name="secure">Seguro</string>
+    <string name="local_data">Dados locais</string>
+    <string name="no_internet_connection">Sem ligação à Internet</string>
     <string name="on_device_assurance">A aplicação guarda o histórico de utilização neste telemóvel e não estabelece ligações de rede. Os dados só saem quando os exporta explicitamente.</string>
     <string name="grant_usage_access">Conceder Acesso à utilização</string>
-    <string name="day">Dia</string><string name="week">Semana</string><string name="seven_days">7 dias</string><string name="thirty_days">30 dias</string>
-    <string name="previous_day">Dia anterior</string><string name="next_day">Dia seguinte</string>
-    <string name="previous_year">Ano anterior</string><string name="next_year">Ano seguinte</string>
-    <string name="month">Mês</string><string name="year">Ano</string>
-    <string name="custom_range">Intervalo personalizado</string><string name="all_data">Todos os dados</string>
-    <string name="total_screen_time">Tempo de ecrã total</string><string name="daily_average">Média diária</string><string name="time_during_this_day">Tempo durante este dia</string><string name="average_during_this_month">Média durante este mês</string><string name="same_as_last_month_average">Igual à média diária do mês passado (%1$s)</string><string name="no_last_month_average">Ainda não há média do mês passado</string><string name="percent_vs_last_month_average">%1$s%2$d%% face à média diária do mês passado (%3$s)</string>
-    <string name="usage_share">Distribuição da utilização</string><string name="usage_breakdown">Detalhes da utilização</string><string name="swipe_period_hint">Deslize para a esquerda para períodos mais recentes ou para a direita para períodos anteriores.</string>
-    <string name="other_apps">Outras aplicações</string><string name="week_number">S%1$d</string>
-    <string name="morning">Manhã</string><string name="afternoon">Tarde</string><string name="evening">Fim de tarde</string><string name="night">Noite</string>
+    <string name="day">Dia</string>
+    <string name="week">Semana</string>
+    <string name="previous_day">Dia anterior</string>
+    <string name="next_day">Dia seguinte</string>
+    <string name="previous_year">Ano anterior</string>
+    <string name="next_year">Ano seguinte</string>
+    <string name="month">Mês</string>
+    <string name="year">Ano</string>
+    <string name="custom_range">Intervalo personalizado</string>
+    <string name="all_data">Todos os dados</string>
+    <string name="usage_share">Distribuição da utilização</string>
+    <string name="other_apps">Outras aplicações</string>
+    <string name="week_number">S%1$d</string>
+    <string name="morning">Manhã</string>
+    <string name="afternoon">Tarde</string>
+    <string name="evening">Fim de tarde</string>
+    <string name="night">Noite</string>
     <string name="most_used_apps">Aplicações mais utilizadas</string>
     <plurals name="search_results"><item quantity="one">%1$d resultado da pesquisa</item><item quantity="many">%1$d resultados da pesquisa</item><item quantity="other">%1$d resultados da pesquisa</item></plurals>
     <plurals name="showing_all_apps"><item quantity="one">A mostrar %1$d aplicação</item><item quantity="many">A mostrar todas as %1$d aplicações</item><item quantity="other">A mostrar todas as %1$d aplicações</item></plurals>
-    <plurals name="showing_top_apps"><item quantity="one">A mostrar %1$d aplicação principal</item><item quantity="many">A mostrar as primeiras %1$d aplicações</item><item quantity="other">A mostrar as primeiras %1$d aplicações</item></plurals>
-    <string name="search_by_app_name">Pesquisar pelo nome da aplicação</string><string name="no_usage_period">Ainda não há utilização registada para este período.</string><string name="no_search_matches">Nenhuma aplicação corresponde à pesquisa.</string>
-    <string name="open_settings">Abrir definições</string><string name="hide_app_search">Ocultar pesquisa de aplicações</string><string name="search_apps">Pesquisar aplicações</string><string name="show_top_apps">Mostrar aplicações principais</string><string name="show_all_apps">Mostrar todas as aplicações</string><string name="back_to_dashboard">Voltar ao painel</string>
+    <string name="search_by_app_name">Pesquisar pelo nome da aplicação</string>
+    <string name="no_usage_period">Ainda não há utilização registada para este período.</string>
+    <string name="no_search_matches">Nenhuma aplicação corresponde à pesquisa.</string>
+    <string name="open_settings">Abrir definições</string>
+    <string name="hide_app_search">Ocultar pesquisa de aplicações</string>
+    <string name="search_apps">Pesquisar aplicações</string>
+    <string name="back_to_dashboard">Voltar ao painel</string>
     <plurals name="launch_count"><item quantity="one">%1$d abertura</item><item quantity="many">%1$d aberturas</item><item quantity="other">%1$d aberturas</item></plurals>
-    <string name="usage_over_time">Utilização ao longo do tempo</string><string name="no_app_usage_period">Não foi registada utilização desta aplicação durante este período.</string><string name="usage_trend_chart_description">Tendência diária de utilização com datas selecionáveis</string><string name="total">Total</string>
-    <string name="calendar">Calendário</string><string name="calendar_chart_description">Calendário de utilização com datas selecionáveis</string><string name="older_calendar_period">Mostrar datas anteriores</string><string name="newer_calendar_period">Mostrar datas posteriores</string><string name="collection_may_be_incomplete">A recolha pode estar incompleta durante parte deste período. Consulte Estado da recolha nas Definições.</string><string name="best_streaks">Melhores sequências</string><plurals name="streak_days"><item quantity="one">%1$d dia</item><item quantity="many">%1$d dias</item><item quantity="other">%1$d dias</item></plurals><string name="no_streaks">Ainda não há sequências de utilização neste período.</string>
-    <string name="total_selected_period_description">Toda a utilização registada no período selecionado</string><string name="average_selected_period_description">Total ÷ dias do calendário no período selecionado</string><string name="usage_patterns">Padrões de utilização</string><string name="most_used_day">Dia de maior utilização</string><string name="weekday_weekend">Dias úteis / fim de semana</string><string name="weekday_weekend_value">Dias úteis %1$d%% • Fim de semana %2$d%%</string><string name="weekday_weekend_description">Proporção da utilização total registada desta aplicação no período selecionado.</string>
-    <string name="data_collection">Recolha de dados</string><string name="collection_health">Estado da recolha</string><string name="no_successful_aggregation">Ainda não foi concluída nenhuma agregação</string>
-    <string name="export">Exportar</string><string name="export_description">Escolha exatamente quanto histórico local pretende exportar.</string><string name="all_export_description">Serão incluídos todos os agregados diários guardados.</string><string name="custom_export_description">Só serão incluídos os registos deste intervalo</string><string name="change">Alterar</string><string name="export_csv">Exportar CSV</string><string name="export_json">Exportar JSON</string>
-    <string name="backup_restore">Cópia de segurança e restauro</string><string name="backup_description">As cópias de segurança encriptadas incluem todo o histórico e utilizam AES-256-GCM com uma chave derivada da sua palavra-passe. A palavra-passe não pode ser recuperada.</string><string name="create_encrypted_backup">Criar cópia de segurança encriptada</string><string name="restore_json">Restaurar JSON</string><string name="restore_encrypted_backup">Restaurar cópia encriptada</string>
-    <string name="privacy">Privacidade</string><string name="privacy_description">As informações de utilização são guardadas localmente. Não são incluídos conta, SDK de análise ou publicidade nem permissão de Internet. Os dados só saem do dispositivo quando os exporta explicitamente ou ativa uma futura ligação.</string><string name="open_privacy_policy">Abrir política de privacidade</string>
-    <string name="backup_password">Palavra-passe da cópia</string><string name="password">Palavra-passe</string><string name="continue_action">Continuar</string><string name="cancel">Cancelar</string>
-    <string name="custom_date_range">Intervalo de datas personalizado</string><string name="date_format_hint">Utilize AAAA-MM-DD</string><string name="start">Início</string><string name="end">Fim</string><string name="apply">Aplicar</string>
-    <string name="no_previous_baseline">Sem período anterior de referência</string><string name="same_previous_period">Igual ao período anterior</string><string name="percent_previous_period">%1$s%2$d%% face ao período anterior</string>
+    <string name="usage_over_time">Utilização ao longo do tempo</string>
+    <string name="no_app_usage_period">Não foi registada utilização desta aplicação durante este período.</string>
+    <string name="usage_trend_chart_description">Tendência diária de utilização com datas selecionáveis</string>
+    <string name="calendar">Calendário</string>
+    <string name="calendar_chart_description">Calendário de utilização com datas selecionáveis</string>
+    <string name="collection_may_be_incomplete">A recolha pode estar incompleta durante parte deste período. Consulte Estado da recolha nas Definições.</string>
+    <plurals name="streak_days"><item quantity="one">%1$d dia</item><item quantity="many">%1$d dias</item><item quantity="other">%1$d dias</item></plurals>
+    <string name="no_streaks">Sem dias de utilização neste período.</string>
+    <string name="most_used_day">Dia de maior utilização</string>
+    <string name="data_collection">Recolha de dados</string>
+    <string name="collection_health">Estado da recolha</string>
+    <string name="no_successful_aggregation">Ainda não foi concluída nenhuma agregação</string>
+    <string name="export">Exportar</string>
+    <string name="export_description">Escolha exatamente quanto histórico local pretende exportar.</string>
+    <string name="all_export_description">Serão incluídos todos os agregados diários guardados.</string>
+    <string name="custom_export_description">Só serão incluídos os registos deste intervalo</string>
+    <string name="change">Alterar</string>
+    <string name="export_csv">Exportar CSV</string>
+    <string name="export_json">Exportar JSON</string>
+    <string name="backup_restore">Cópia de segurança e restauro</string>
+    <string name="backup_description">As cópias de segurança encriptadas incluem todo o histórico e utilizam AES-256-GCM com uma chave derivada da sua palavra-passe. A palavra-passe não pode ser recuperada.</string>
+    <string name="create_encrypted_backup">Criar cópia de segurança encriptada</string>
+    <string name="restore_json">Restaurar JSON</string>
+    <string name="restore_encrypted_backup">Restaurar cópia encriptada</string>
+    <string name="privacy">Privacidade</string>
+    <string name="privacy_description">As informações de utilização são guardadas localmente. Não são incluídos conta, SDK de análise ou publicidade nem permissão de Internet. Os dados só saem do dispositivo quando os exporta explicitamente ou ativa uma futura ligação.</string>
+    <string name="open_privacy_policy">Abrir política de privacidade</string>
+    <string name="backup_password">Palavra-passe da cópia</string>
+    <string name="password">Palavra-passe</string>
+    <string name="continue_action">Continuar</string>
+    <string name="cancel">Cancelar</string>
+    <string name="custom_date_range">Intervalo de datas personalizado</string>
+    <string name="date_format_hint">Utilize AAAA-MM-DD</string>
+    <string name="start">Início</string>
+    <string name="end">Fim</string>
+    <string name="apply">Aplicar</string>
+    <string name="today">Hoje</string>
+    <string name="semester">Semestre</string>
+    <string name="full_day">Dia completo</string>
+    <string name="full_period">Período completo</string>
+    <string name="total_day_time">Tempo total do dia</string>
+    <string name="average_in_month">Média em %1$s</string>
+    <string name="total_all_time">Total histórico</string>
+    <string name="total_in_period">Total em %1$s</string>
+    <string name="active_days">Dias ativos</string>
+    <string name="top_consecutive_days">Melhores sequências de dias</string>
+    <string name="previous_period">Período anterior</string>
+    <string name="next_period">Período seguinte</string>
+    <string name="close">Fechar</string>
 </resources>

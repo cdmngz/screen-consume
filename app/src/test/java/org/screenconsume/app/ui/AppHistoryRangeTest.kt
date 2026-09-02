@@ -47,4 +47,45 @@ class AppHistoryRangeTest {
     fun `y axis labels omit the zero value at the x axis`() {
         assertEquals(listOf(90L, 60L, 30L), yAxisLabelValues(90L))
     }
+
+    @Test
+    fun `all month weeks exist even on the first day`() {
+        val weeks = monthWeekRanges(LocalDate.of(2026, 9, 1))
+        assertEquals(5, weeks.size)
+        assertEquals(LocalDate.of(2026, 9, 1), weeks.first().start)
+        assertEquals(LocalDate.of(2026, 9, 30), weeks.last().endInclusive)
+        assertEquals(30L, weeks.sumOf { it.dayCount })
+        assertEquals(4, monthWeekRanges(LocalDate.of(2026, 2, 1)).size)
+        assertEquals(5, monthWeekRanges(LocalDate.of(2024, 2, 1)).size)
+    }
+
+    @Test
+    fun `month navigation crosses year boundary`() {
+        val range = appHistoryRange(LocalDate.of(2026, 1, 2), AppHistoryPreset.MONTH, 1)
+        assertEquals(LocalDate.of(2025, 12, 1), range.start)
+        assertEquals(LocalDate.of(2025, 12, 31), range.endInclusive)
+    }
+
+    @Test
+    fun `semester navigation covers preceding calendar half year`() {
+        val today = LocalDate.of(2026, 9, 2)
+        val current = appHistoryRange(today, AppHistoryPreset.SEMESTER, 0)
+        assertEquals(LocalDate.of(2026, 7, 1), current.start)
+        assertEquals(today, current.endInclusive)
+        val previous = appHistoryRange(today, AppHistoryPreset.SEMESTER, 1)
+        assertEquals(LocalDate.of(2026, 1, 1), previous.start)
+        assertEquals(LocalDate.of(2026, 6, 30), previous.endInclusive)
+    }
+
+    @Test
+    fun `day and week arrows navigate by their own period`() {
+        val today = LocalDate.of(2026, 9, 2)
+        assertEquals(today.minusDays(1), appHistoryRange(today, AppHistoryPreset.TODAY, 1).start)
+        val week = appHistoryRange(today, AppHistoryPreset.WEEK, 1)
+        assertEquals(today.minusDays(13), week.start)
+        assertEquals(today.minusDays(7), week.endInclusive)
+        AppHistoryPreset.entries.forEach { preset ->
+            assertEquals(today, appHistoryRange(today, preset, -1).endInclusive)
+        }
+    }
 }

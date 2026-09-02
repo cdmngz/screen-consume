@@ -13,7 +13,7 @@ Digital wellbeing tools can help people understand and adjust their relationship
 The proof of concept explores several ideas:
 
 - Swipeable daily, weekly, calendar-month, and calendar-year dashboard views, with custom ranges available for export.
-- A stable headline summary for today's total screen time and the current calendar month's daily average, with both compared directly against the previous month's daily average.
+- A headline summary for the selected period’s final day and the daily average of the month containing that day.
 - App, category, launch-count, interactive daily-trend, calendar, streak, usage-pattern, and broad time-of-day perspectives.
 - Indefinite local retention of compact daily aggregates, controlled by the device owner.
 - Transparent CSV/JSON export and restorable encrypted backups.
@@ -25,14 +25,13 @@ These are proposed concepts demonstrated by this repository. They should not be 
 
 The current app includes:
 
-- A dashboard period dropdown for day, week, calendar month, and calendar year, with horizontal gestures for moving between adjacent periods.
-- An interactive stacked usage chart: time-of-day buckets for today, daily buckets for a week, weekly buckets for a month, and monthly buckets for a year. Each bucket ranks the top three apps and groups the remainder as **Other**; tapping a bar reveals exact app names, durations, and totals.
-- Today's total screen time and the current calendar month's daily average, each with a plain-language definition and a direct percentage/duration comparison against the previous month's daily average. The selected breakdown period does not change these headline definitions.
+- Day, Week, Month, and Year buttons below the dashboard chart, with horizontal gestures for moving between adjacent periods.
+- An interactive stacked usage chart: morning/afternoon/evening/night buckets for a day, daily buckets for a week, weekly buckets for a month, and monthly buckets for a year. Month views always include every seven-day slot starting on the first, including an incomplete final week and future slots with no usage yet. Each bucket ranks the top three apps and groups the remainder as **Other**. Tap a bar to inspect it, tap it again to clear the selection, or tap outside the chart to restore the complete breakdown.
+- **Total Day Time** reports the selected period’s final day. **Average in {month year}** reports daily usage averaged over that calendar month, through today for the current month. Historical months include all calendar days, including days with no recorded usage.
 - Daily per-app aggregation with morning, afternoon, evening, and night totals.
-- A dedicated per-app detail view that opens to 7 days and offers 7-day, 30-day, and calendar-year presets. Swiping across a calendar-year chart explores earlier or newer years, while navigation remains bounded at the current year so future dates are never exposed.
-- A scrubbable per-app daily trend chart in a Material card with labeled time and date axes, plus an independently pageable calendar. One finger inspects dates in either visualization; as on the dashboard, a longer swipe right shows an older period and a longer swipe left returns toward newer periods. Calendar-year charts begin at January and show quarterly month markers for orientation. The calendar includes date numbers, weekday labels, month markers, usage-intensity shading, and navigation back to 2010 even when the selected analytics preset is shorter.
-- Ranked consecutive-use streaks with compact date labels inside their progress bars.
-- Distinct per-app usage-pattern summaries for the most-used day and weekday/weekend usage share.
+- A dedicated per-app detail view opens to Week and offers Today, Week, Month, Semester, and Year. Previous/next arrows move by the selected unit and disable future navigation. Week means a trailing seven-day window; Month and Year use calendar boundaries; Semester means January–June or July–December. Current calendar periods end today.
+- A scrubbable daily trend chart appears immediately below the detail period controls. Tapping or dragging selects a date and displays its usage below the chart. Four compact cards follow: all-time total, selected-period total, highest-use date (**Most-used day**), and active days out of calendar days in the period. The independent calendar retains date numbers, weekday labels, month markers, usage-intensity shading, and date navigation back to 2010.
+- **Top Consecutive days** shows up to five streaks in the selected period, ranked by duration and then recency, with rank badges, date ranges, and relative-length bars.
 - Screen-reader previous/next-date actions for the interactive trend and calendar, plus text summaries of the selected values.
 - Explicit messaging when a blank day means only “no recorded usage” or collection health suggests that part of a period may be incomplete.
 - Periodic, idempotent reaggregation of recent days with collection-health status.
@@ -41,7 +40,7 @@ The current app includes:
 - Password-encrypted full-history backup and restore.
 - English, Spanish, Italian, French, Portuguese, and German interfaces selected automatically from the device language.
 - Automatic light and dark themes based on the device setting, including theme-aware chart and system-bar colors.
-- A dashboard with period analytics and app search/expansion, full-screen per-app analytics, and a separate settings view.
+- The most-used-app list excludes entries below one displayed minute and opens app details directly, without trailing arrows. Search opens a centered dialog with filtered results and keyboard focus.
 
 No online integration is exposed in the interface. The source retains only a provider-neutral future extension interface; no provider, authentication flow, API client, upload job, or other online connection is implemented or shipped.
 
@@ -136,9 +135,11 @@ The worker reprocesses the current and previous two days every six hours. A tran
 
 Prerequisites:
 
-- Android Studio with Android SDK 36 and current SDK build tools.
-- Java 17.
+- Android Studio with Android SDK 37 for compilation (target SDK remains 36) and current SDK build tools.
+- Android Studio's bundled JBR to run Gradle (currently JDK 25.0.3). Java/Kotlin compilation targets remain at 17.
 - An Android 8.0/API 26 or newer device or emulator.
+
+Set Android Studio's Gradle JDK and terminal `JAVA_HOME` to the same bundled JBR installation.
 
 Open the repository in Android Studio and allow Gradle to sync, or use the checked-in wrapper:
 
@@ -156,9 +157,23 @@ Room instrumentation tests require a connected device or emulator:
 ./gradlew connectedDebugAndroidTest
 ```
 
+## Unused code and translation checks
+
+Run the checked-in tools after removing UI or refactoring Kotlin:
+
+```sh
+./gradlew :app:detektDebug :app:detektRelease lintDebug lintRelease
+```
+
+[Android Lint](https://developer.android.com/studio/write/lint) fails on unused resources, missing/extra translations, invalid string formats, and mismatched formatting arguments. Remove obsolete string and plural keys from every supported locale in the same change. Keep format placeholders and plural quantities valid for each language. The only unused-resource exception is the source launcher artwork retained for generating store assets.
+
+[Detekt](https://detekt.dev/docs/gettingstarted/gradle/) is pinned to **2.0.0-alpha.6**, matching the Kotlin 2.4.10 line, and runs at build time only. `config/detekt.yml` enables a focused set of unused import/private function/private property rules, without a baseline. Use the variant tasks above for type resolution; a clean report is not proof that every public/internal symbol is reachable. Use Android Studio’s **Inspect Code → Unused declaration** inspection and review framework, Room/KSP, tests, and reflection entry points before deleting non-private APIs. Test-only references can also conceal unused production helpers.
+
+Lint reports are under `app/build/reports/lint-results-*.html`; Detekt reports are under `app/build/reports/detekt/`. Neither tool replaces tests or release shrinking. The Detekt alpha is a pinned development dependency; review its compatibility and release notes before upgrading.
+
 ## Tests and coverage
 
-The repository currently includes 34 JVM unit tests and one connected Android test. The JVM suite covers usage aggregation, calendar-day clipping and time-of-day boundaries, dashboard analytics, CSV/JSON portability and validation, encrypted-backup handling, and app-detail analytics calculations. Detail tests verify empty-day handling, calendar date placement and intensity, consecutive-use streak ranking, weekday/weekend pattern totals, history bucketing primitives, visible-week limits, calendar-year boundaries, protection against future-year navigation, dashboard-consistent paging direction, and Y-axis labels. The connected Room test verifies that repeated daily upserts do not create duplicate records.
+The repository includes JVM unit tests and a connected Room test. The JVM suite covers usage aggregation, calendar-day clipping and time-of-day boundaries, dashboard analytics, CSV/JSON portability and validation, encrypted-backup handling, and app-detail analytics calculations. Detail tests verify empty-day handling, calendar date placement and intensity, consecutive-use streak ranking, weekday/weekend pattern totals, history bucketing primitives, visible-week limits, calendar-year boundaries, day/week/month/semester navigation, complete month-week slots including leap February, protection against future navigation, dashboard-consistent paging direction, and Y-axis labels. The connected Room test verifies that repeated daily upserts do not create duplicate records.
 
 Run the JVM suite and generate the JaCoCo HTML report with:
 

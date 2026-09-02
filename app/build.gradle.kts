@@ -1,6 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
+    id("dev.detekt")
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
     id("com.google.devtools.ksp")
@@ -95,4 +96,11 @@ dependencies {
 
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+// Build-time analysis only; no analyzer dependencies enter the APK.
+detekt {
+    toolVersion = "2.0.0-alpha.6"
+    config.setFrom(rootProject.file("config/detekt.yml"))
+    buildUponDefaultConfig = false
 }

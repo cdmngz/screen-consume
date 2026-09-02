@@ -3,33 +3,86 @@
     <string name="settings">Einstellungen</string>
     <string name="screen_time_stays_yours">Deine Bildschirmzeit bleibt privat</string>
     <string name="usage_access_explanation">%1$s benötigt Zugriff auf Nutzungsdaten, um Tagessummen zu erstellen. Gespeichert werden nur lokale Zusammenfassungen, keine einzelnen Interaktionen oder genauen App-Öffnungszeiten.</string>
-    <string name="secure">Sicher</string><string name="local_data">Lokale Daten</string><string name="no_internet_connection">Keine Internetverbindung</string>
+    <string name="secure">Sicher</string>
+    <string name="local_data">Lokale Daten</string>
+    <string name="no_internet_connection">Keine Internetverbindung</string>
     <string name="on_device_assurance">Die App speichert den Nutzungsverlauf auf diesem Telefon und stellt keine Netzwerkverbindung her. Daten verlassen das Gerät nur, wenn du sie ausdrücklich exportierst.</string>
     <string name="grant_usage_access">Zugriff auf Nutzungsdaten gewähren</string>
-    <string name="day">Tag</string><string name="week">Woche</string><string name="seven_days">7 Tage</string><string name="thirty_days">30 Tage</string>
-    <string name="previous_day">Vorheriger Tag</string><string name="next_day">Nächster Tag</string>
-    <string name="previous_year">Vorheriges Jahr</string><string name="next_year">Nächstes Jahr</string>
-    <string name="month">Monat</string><string name="year">Jahr</string>
-    <string name="custom_range">Benutzerdefinierter Zeitraum</string><string name="all_data">Alle Daten</string>
-    <string name="total_screen_time">Gesamte Bildschirmzeit</string><string name="daily_average">Tagesdurchschnitt</string><string name="time_during_this_day">Zeit an diesem Tag</string><string name="average_during_this_month">Durchschnitt in diesem Monat</string><string name="same_as_last_month_average">Entspricht dem Tagesdurchschnitt des letzten Monats (%1$s)</string><string name="no_last_month_average">Noch kein Durchschnitt für den letzten Monat</string><string name="percent_vs_last_month_average">%1$s%2$d%% gegenüber dem Tagesdurchschnitt des letzten Monats (%3$s)</string>
-    <string name="usage_share">Nutzungsanteil</string><string name="usage_breakdown">Nutzungsübersicht</string><string name="swipe_period_hint">Nach links wischen für neuere Zeiträume, nach rechts für ältere.</string>
-    <string name="other_apps">Andere Apps</string><string name="week_number">KW%1$d</string>
-    <string name="morning">Morgen</string><string name="afternoon">Nachmittag</string><string name="evening">Abend</string><string name="night">Nacht</string>
+    <string name="day">Tag</string>
+    <string name="week">Woche</string>
+    <string name="previous_day">Vorheriger Tag</string>
+    <string name="next_day">Nächster Tag</string>
+    <string name="previous_year">Vorheriges Jahr</string>
+    <string name="next_year">Nächstes Jahr</string>
+    <string name="month">Monat</string>
+    <string name="year">Jahr</string>
+    <string name="custom_range">Benutzerdefinierter Zeitraum</string>
+    <string name="all_data">Alle Daten</string>
+    <string name="usage_share">Nutzungsanteil</string>
+    <string name="other_apps">Andere Apps</string>
+    <string name="week_number">KW%1$d</string>
+    <string name="morning">Morgen</string>
+    <string name="afternoon">Nachmittag</string>
+    <string name="evening">Abend</string>
+    <string name="night">Nacht</string>
     <string name="most_used_apps">Meistgenutzte Apps</string>
     <plurals name="search_results"><item quantity="one">%1$d Suchergebnis</item><item quantity="other">%1$d Suchergebnisse</item></plurals>
     <plurals name="showing_all_apps"><item quantity="one">%1$d App wird angezeigt</item><item quantity="other">Alle %1$d Apps werden angezeigt</item></plurals>
-    <plurals name="showing_top_apps"><item quantity="one">Die meistgenutzte App wird angezeigt</item><item quantity="other">Die %1$d meistgenutzten Apps werden angezeigt</item></plurals>
-    <string name="search_by_app_name">Nach App-Name suchen</string><string name="no_usage_period">Für diesen Zeitraum wurde noch keine Nutzung erfasst.</string><string name="no_search_matches">Keine App entspricht deiner Suche.</string>
-    <string name="open_settings">Einstellungen öffnen</string><string name="hide_app_search">App-Suche ausblenden</string><string name="search_apps">Apps suchen</string><string name="show_top_apps">Top-Apps anzeigen</string><string name="show_all_apps">Alle Apps anzeigen</string><string name="back_to_dashboard">Zurück zur Übersicht</string>
+    <string name="search_by_app_name">Nach App-Name suchen</string>
+    <string name="no_usage_period">Für diesen Zeitraum wurde noch keine Nutzung erfasst.</string>
+    <string name="no_search_matches">Keine App entspricht deiner Suche.</string>
+    <string name="open_settings">Einstellungen öffnen</string>
+    <string name="hide_app_search">App-Suche ausblenden</string>
+    <string name="search_apps">Apps suchen</string>
+    <string name="back_to_dashboard">Zurück zur Übersicht</string>
     <plurals name="launch_count"><item quantity="one">%1$d Öffnung</item><item quantity="other">%1$d Öffnungen</item></plurals>
-    <string name="usage_over_time">Nutzung im Zeitverlauf</string><string name="no_app_usage_period">Für diese App wurde in diesem Zeitraum keine Nutzung erfasst.</string><string name="usage_trend_chart_description">Täglicher Nutzungsverlauf mit auswählbaren Daten</string><string name="total">Gesamt</string>
-    <string name="calendar">Kalender</string><string name="calendar_chart_description">Nutzungskalender mit auswählbaren Daten</string><string name="older_calendar_period">Ältere Kalenderdaten anzeigen</string><string name="newer_calendar_period">Neuere Kalenderdaten anzeigen</string><string name="collection_may_be_incomplete">Die Erfassung kann für einen Teil dieses Zeitraums unvollständig sein. Prüfe den Erfassungsstatus in den Einstellungen.</string><string name="best_streaks">Beste Serien</string><plurals name="streak_days"><item quantity="one">%1$d Tag</item><item quantity="other">%1$d Tage</item></plurals><string name="no_streaks">Für diesen Zeitraum gibt es noch keine Nutzungsserien.</string>
-    <string name="total_selected_period_description">Gesamte erfasste Nutzung im ausgewählten Zeitraum</string><string name="average_selected_period_description">Gesamt ÷ Kalendertage im ausgewählten Zeitraum</string><string name="usage_patterns">Nutzungsmuster</string><string name="most_used_day">Tag mit der höchsten Nutzung</string><string name="weekday_weekend">Wochentage / Wochenende</string><string name="weekday_weekend_value">Wochentage %1$d%% • Wochenende %2$d%%</string><string name="weekday_weekend_description">Anteil an der gesamten erfassten Nutzung dieser App im ausgewählten Zeitraum.</string>
-    <string name="data_collection">Datenerfassung</string><string name="collection_health">Erfassungsstatus</string><string name="no_successful_aggregation">Noch keine erfolgreiche Zusammenfassung</string>
-    <string name="export">Exportieren</string><string name="export_description">Wähle genau aus, wie viel des lokalen Nutzungsverlaufs exportiert werden soll.</string><string name="all_export_description">Alle gespeicherten täglichen App-Zusammenfassungen werden einbezogen.</string><string name="custom_export_description">Nur Einträge innerhalb dieses Zeitraums werden einbezogen</string><string name="change">Ändern</string><string name="export_csv">CSV exportieren</string><string name="export_json">JSON exportieren</string>
-    <string name="backup_restore">Sicherung und Wiederherstellung</string><string name="backup_description">Verschlüsselte Sicherungen enthalten den gesamten Verlauf und verwenden AES-256-GCM mit einem aus deinem Passwort abgeleiteten Schlüssel. Das Passwort kann nicht wiederhergestellt werden.</string><string name="create_encrypted_backup">Verschlüsselte Sicherung erstellen</string><string name="restore_json">JSON wiederherstellen</string><string name="restore_encrypted_backup">Verschlüsselte Sicherung wiederherstellen</string>
-    <string name="privacy">Datenschutz</string><string name="privacy_description">Nutzungsinformationen werden lokal gespeichert. Es sind weder Konto, Analyse- oder Werbe-SDK noch Internetberechtigung enthalten. Daten verlassen dein Gerät nur, wenn du sie ausdrücklich exportierst oder künftig eine Verbindung aktivierst.</string><string name="open_privacy_policy">Datenschutzerklärung öffnen</string>
-    <string name="backup_password">Sicherungspasswort</string><string name="password">Passwort</string><string name="continue_action">Weiter</string><string name="cancel">Abbrechen</string>
-    <string name="custom_date_range">Benutzerdefinierter Datumsbereich</string><string name="date_format_hint">JJJJ-MM-TT verwenden</string><string name="start">Anfang</string><string name="end">Ende</string><string name="apply">Anwenden</string>
-    <string name="no_previous_baseline">Kein vorheriger Vergleichszeitraum</string><string name="same_previous_period">Entspricht dem vorherigen Zeitraum</string><string name="percent_previous_period">%1$s%2$d%% gegenüber dem vorherigen Zeitraum</string>
+    <string name="usage_over_time">Nutzung im Zeitverlauf</string>
+    <string name="no_app_usage_period">Für diese App wurde in diesem Zeitraum keine Nutzung erfasst.</string>
+    <string name="usage_trend_chart_description">Täglicher Nutzungsverlauf mit auswählbaren Daten</string>
+    <string name="calendar">Kalender</string>
+    <string name="calendar_chart_description">Nutzungskalender mit auswählbaren Daten</string>
+    <string name="collection_may_be_incomplete">Die Erfassung kann für einen Teil dieses Zeitraums unvollständig sein. Prüfe den Erfassungsstatus in den Einstellungen.</string>
+    <plurals name="streak_days"><item quantity="one">%1$d Tag</item><item quantity="other">%1$d Tage</item></plurals>
+    <string name="no_streaks">Keine Nutzungstage in diesem Zeitraum.</string>
+    <string name="most_used_day">Tag mit der höchsten Nutzung</string>
+    <string name="data_collection">Datenerfassung</string>
+    <string name="collection_health">Erfassungsstatus</string>
+    <string name="no_successful_aggregation">Noch keine erfolgreiche Zusammenfassung</string>
+    <string name="export">Exportieren</string>
+    <string name="export_description">Wähle genau aus, wie viel des lokalen Nutzungsverlaufs exportiert werden soll.</string>
+    <string name="all_export_description">Alle gespeicherten täglichen App-Zusammenfassungen werden einbezogen.</string>
+    <string name="custom_export_description">Nur Einträge innerhalb dieses Zeitraums werden einbezogen</string>
+    <string name="change">Ändern</string>
+    <string name="export_csv">CSV exportieren</string>
+    <string name="export_json">JSON exportieren</string>
+    <string name="backup_restore">Sicherung und Wiederherstellung</string>
+    <string name="backup_description">Verschlüsselte Sicherungen enthalten den gesamten Verlauf und verwenden AES-256-GCM mit einem aus deinem Passwort abgeleiteten Schlüssel. Das Passwort kann nicht wiederhergestellt werden.</string>
+    <string name="create_encrypted_backup">Verschlüsselte Sicherung erstellen</string>
+    <string name="restore_json">JSON wiederherstellen</string>
+    <string name="restore_encrypted_backup">Verschlüsselte Sicherung wiederherstellen</string>
+    <string name="privacy">Datenschutz</string>
+    <string name="privacy_description">Nutzungsinformationen werden lokal gespeichert. Es sind weder Konto, Analyse- oder Werbe-SDK noch Internetberechtigung enthalten. Daten verlassen dein Gerät nur, wenn du sie ausdrücklich exportierst oder künftig eine Verbindung aktivierst.</string>
+    <string name="open_privacy_policy">Datenschutzerklärung öffnen</string>
+    <string name="backup_password">Sicherungspasswort</string>
+    <string name="password">Passwort</string>
+    <string name="continue_action">Weiter</string>
+    <string name="cancel">Abbrechen</string>
+    <string name="custom_date_range">Benutzerdefinierter Datumsbereich</string>
+    <string name="date_format_hint">JJJJ-MM-TT verwenden</string>
+    <string name="start">Anfang</string>
+    <string name="end">Ende</string>
+    <string name="apply">Anwenden</string>
+    <string name="today">Heute</string>
+    <string name="semester">Halbjahr</string>
+    <string name="full_day">Ganzer Tag</string>
+    <string name="full_period">Gesamter Zeitraum</string>
+    <string name="total_day_time">Gesamtzeit am Tag</string>
+    <string name="average_in_month">Durchschnitt im %1$s</string>
+    <string name="total_all_time">Gesamtzeit bisher</string>
+    <string name="total_in_period">Gesamtzeit im Zeitraum: %1$s</string>
+    <string name="active_days">Aktive Tage</string>
+    <string name="top_consecutive_days">Längste Nutzungsserien</string>
+    <string name="previous_period">Vorheriger Zeitraum</string>
+    <string name="next_period">Nächster Zeitraum</string>
+    <string name="close">Schließen</string>
 </resources>

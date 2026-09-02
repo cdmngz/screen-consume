@@ -4,11 +4,11 @@ Capture screenshots from a release-equivalent build on a phone-sized API 26+ emu
 
 Recommended portrait captures:
 
-1. Dashboard — today, with headline metrics and the usage breakdown visible.
-2. Dashboard — month view, showing app distribution and the most-used-app list.
-3. App detail — interactive daily trend plus Total and Daily average definitions.
+1. Dashboard — today, with Total Day Time, the selected-month average, and period buttons visible.
+2. Dashboard — month view, showing all month-week slots and the most-used-app list (no 0-minute entries).
+3. App detail — period navigation, a selected trend dot, and compact all-time/period/most-used-day/active-days cards.
 4. App detail — calendar with weekday/month labels and a selected date.
-5. App detail — best streaks and usage patterns.
+5. App detail — Top Consecutive days with at most five ranked streaks.
 6. Settings — export, encrypted backup, collection health, and privacy-policy access.
 
 Before upload:

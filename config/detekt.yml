@@ -1,0 +1,11 @@
+# A focused unused-code check, without unrelated style rules or a baseline.
+config:
+  validation: true
+style:
+  active: true
+  UnusedImport:
+    active: true
+  UnusedPrivateFunction:
+    active: true
+  UnusedPrivateProperty:
+    active: true

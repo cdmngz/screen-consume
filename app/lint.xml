@@ -1,6 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <lint>
-    <!-- API 36 is the repository's supported SDK and current Google Play target requirement. -->
+    <issue id="MissingTranslation" severity="error" />
+    <issue id="ExtraTranslation" severity="error" />
+    <issue id="StringFormatInvalid" severity="error" />
+    <issue id="StringFormatMatches" severity="error" />
+
+    <!-- Target API 36 is maintained deliberately; compilation uses SDK 37. -->
     <issue id="OldTargetApi" severity="ignore" />
 
     <!-- Dependency upgrades are reviewed deliberately rather than driven by lint freshness notices. -->
@@ -16,7 +21,7 @@
     <issue id="IconLauncherShape">
         <ignore path="src/main/res/drawable-nodpi/ic_launcher_artwork.png" />
     </issue>
-    <issue id="UnusedResources">
+    <issue id="UnusedResources" severity="error">
         <ignore path="src/main/res/drawable-nodpi/ic_launcher_artwork.png" />
     </issue>
 </lint>
