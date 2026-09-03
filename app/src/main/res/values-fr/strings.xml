@@ -74,7 +74,7 @@
     <string name="top_consecutive_days">Meilleures séries de jours</string>
     <string name="previous_period">Période précédente</string>
     <string name="next_period">Période suivante</string>
-    <string name="hourly_usage_unavailable">L'utilisation par heure n’est pas disponible pour ce jour.</string>
+    <string name="hourly_usage_unavailable">L’utilisation par heure n’est pas disponible pour ce jour.</string>
     <string name="previous_chart_point">Valeur précédente du graphique</string>
     <string name="next_chart_point">Valeur suivante du graphique</string>
 </resources>
