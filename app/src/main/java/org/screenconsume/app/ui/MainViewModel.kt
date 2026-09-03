@@ -22,7 +22,7 @@ enum class RangePreset(val labelRes: Int) {
 }
 
 enum class AppHistoryPreset(val labelRes: Int) {
-    TODAY(R.string.today), WEEK(R.string.week), MONTH(R.string.month), SEMESTER(R.string.semester), YEAR(R.string.year)
+    TODAY(R.string.today), WEEK(R.string.week), MONTH(R.string.month), YEAR(R.string.year)
 }
 
 data class AppDetailUiState(
@@ -32,6 +32,7 @@ data class AppDetailUiState(
     val days: List<DayUsage> = emptyList(),
     val calendarDays: List<DayUsage> = emptyList(),
     val canMoveToNewerPeriod: Boolean = false,
+    val hourlySeconds: List<Long>? = null,
 )
 
 data class HeadlineStats(
@@ -53,22 +54,28 @@ data class MainUiState(
     val loading: Boolean = true,
 )
 
-private data class RangeDashboard(val preset: RangePreset, val range: DateRange, val stats: DashboardStats, val dailyApps: List<DailyAppUsage>)
+internal data class RangeDashboard(
+    val preset: RangePreset,
+    val range: DateRange,
+    val stats: DashboardStats = DashboardStats(),
+    val dailyApps: List<DailyAppUsage> = emptyList(),
+    val headlines: HeadlineStats = HeadlineStats(),
+    val loading: Boolean = true,
+)
 private data class OperationState(val inProgress: Boolean = false, val message: String? = null)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModel(private val repository: UsageRepository) : ViewModel() {
-    private val preset = MutableStateFlow(RangePreset.TODAY)
-    private val periodOffset = MutableStateFlow(0L)
+    private val selection = MutableStateFlow(RangePreset.TODAY to 0L)
     private val access = MutableStateFlow(repository.hasUsageAccess)
     private val operation = MutableStateFlow(OperationState())
     private val selectedApp = MutableStateFlow<AppUsage?>(null)
     private val appHistoryPreset = MutableStateFlow(AppHistoryPreset.WEEK)
     private val appHistoryPeriodOffset = MutableStateFlow(0L)
 
-    private val range = combine(preset, periodOffset) { selected, offset ->
+    private val range = selection.map { (selected, offset) ->
         val today = LocalDate.now()
-        when (selected) {
+        selected to when (selected) {
             RangePreset.TODAY -> DateRange.endingToday(1, today.minusDays(offset))
             RangePreset.WEEK -> DateRange.endingToday(7, today.minusWeeks(offset))
             RangePreset.MONTH -> YearMonth.from(today).minusMonths(offset).let { month ->
@@ -78,26 +85,12 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
                 DateRange(LocalDate.of(year, 1, 1), minOf(LocalDate.of(year, 12, 31), today))
             }
         }
-    }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.Eagerly, DateRange.endingToday(1))
+    }.distinctUntilChanged()
 
-    private val rangeDashboard = combine(preset, range.flatMapLatest { selectedRange ->
-        combine(repository.dashboard(selectedRange), repository.dailyAppUsage(selectedRange)) { stats, apps -> Triple(selectedRange, stats, apps) }
-    }) { selected, data -> RangeDashboard(selected, data.first, data.second, data.third) }
+    private val rangeDashboard = observeRangeDashboard(range, repository::dashboard, repository::dailyAppUsage)
 
-    private val headlineStats = range.flatMapLatest { selectedRange ->
-        val day = selectedRange.endInclusive
-        val month = YearMonth.from(day)
-        val monthRange = DateRange(month.atDay(1), minOf(month.atEndOfMonth(), LocalDate.now()))
-        combine(
-            repository.dashboard(DateRange(day, day)),
-            repository.dashboard(monthRange),
-        ) { dayStats, monthStats ->
-            HeadlineStats(dayStats.totalSeconds, monthStats.averageDailySeconds, day)
-        }
-    }
-
-    val state: StateFlow<MainUiState> = combine(access, rangeDashboard, headlineStats, repository.lastSuccessfulAggregationMillis, operation) { granted, dashboard, headlines, lastRun, task ->
-        MainUiState(granted, dashboard.preset, dashboard.range, dashboard.stats, headlines, dashboard.dailyApps, lastRun, task.message, task.inProgress, false)
+    val state: StateFlow<MainUiState> = combine(access, rangeDashboard, repository.lastSuccessfulAggregationMillis, operation) { granted, dashboard, lastRun, task ->
+        MainUiState(granted, dashboard.preset, dashboard.range, dashboard.stats, dashboard.headlines, dashboard.dailyApps, lastRun, task.message, task.inProgress, dashboard.loading)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainUiState())
 
     val appDetail: StateFlow<AppDetailUiState?> = combine(selectedApp, appHistoryPreset, appHistoryPeriodOffset) { app, selected, offset ->
@@ -110,16 +103,20 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
         if (selection == null) flowOf(null) else {
             val (details, offset) = selection
             val (app, selected, detailRange) = details
+            val hours: Flow<List<Long>?> = if (selected == AppHistoryPreset.TODAY) flow {
+                emit(repository.appHourlyUsage(app.packageName, detailRange.start))
+            } else flowOf(null)
             combine(
                 repository.appHistory(app.packageName, detailRange),
                 repository.appHistory(app.packageName, DateRange(LocalDate.of(2010, 1, 1), LocalDate.now())),
-            ) { days, calendarDays -> AppDetailUiState(app, selected, detailRange, days, calendarDays, offset > 0) }
+                hours,
+            ) { days, calendarDays, hourly -> AppDetailUiState(app, selected, detailRange, days, calendarDays, offset > 0, hourly) }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    fun selectPreset(value: RangePreset) { periodOffset.value = 0; preset.value = value }
+    fun selectPreset(value: RangePreset) { selection.value = value to 0L }
     fun movePeriod(periodsOlder: Long) {
-        periodOffset.value = (periodOffset.value + periodsOlder).coerceAtLeast(0)
+        selection.update { (preset, offset) -> preset to (offset + periodsOlder).coerceAtLeast(0) }
     }
     fun openApp(app: AppUsage) {
         selectedApp.value = app
@@ -169,7 +166,7 @@ internal fun appHistoryYearRange(today: LocalDate, yearsOlder: Long): DateRange 
     val year = today.year - yearsOlder.coerceAtLeast(0).toInt()
     return DateRange(
         LocalDate.of(year, 1, 1),
-        if (year == today.year) today else LocalDate.of(year, 12, 31),
+        LocalDate.of(year, 12, 31),
     )
 }
 
@@ -177,13 +174,10 @@ internal fun appHistoryRange(today: LocalDate, preset: AppHistoryPreset, periods
     val offset = periodsOlder.coerceAtLeast(0)
     return when (preset) {
         AppHistoryPreset.TODAY -> today.minusDays(offset).let { DateRange(it, it) }
-        AppHistoryPreset.WEEK -> DateRange.endingToday(7, today.minusWeeks(offset))
+        AppHistoryPreset.WEEK -> today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+            .minusWeeks(offset).let { DateRange(it, it.plusDays(6)) }
         AppHistoryPreset.MONTH -> YearMonth.from(today).minusMonths(offset).let {
-            DateRange(it.atDay(1), minOf(it.atEndOfMonth(), today))
-        }
-        AppHistoryPreset.SEMESTER -> {
-            val start = LocalDate.of(today.year, if (today.monthValue <= 6) 1 else 7, 1).minusMonths(offset * 6)
-            DateRange(start, minOf(start.plusMonths(6).minusDays(1), today))
+            DateRange(it.atDay(1), it.atEndOfMonth())
         }
         AppHistoryPreset.YEAR -> appHistoryYearRange(today, offset)
     }
@@ -195,4 +189,29 @@ internal fun monthWeekRanges(date: LocalDate): List<DateRange> {
         val start = month.atDay(day)
         DateRange(start, minOf(start.plusDays(6), month.atEndOfMonth()))
     }
+}
+
+/** Cancel the old range before emitting a selection with its matching query results. */
+@OptIn(ExperimentalCoroutinesApi::class)
+internal fun observeRangeDashboard(
+    ranges: Flow<Pair<RangePreset, DateRange>>,
+    dashboard: (DateRange) -> Flow<DashboardStats>,
+    dailyAppUsage: (DateRange) -> Flow<List<DailyAppUsage>>,
+): Flow<RangeDashboard> = ranges.flatMapLatest { (selected, selectedRange) ->
+    val day = selectedRange.endInclusive
+    val month = YearMonth.from(day)
+    val monthRange = DateRange(month.atDay(1), minOf(month.atEndOfMonth(), LocalDate.now()))
+    val headlines = combine(
+        dashboard(DateRange(day, day)),
+        dashboard(monthRange),
+    ) { dayStats, monthStats ->
+        HeadlineStats(dayStats.totalSeconds, monthStats.averageDailySeconds, day)
+    }
+    combine(
+        dashboard(selectedRange),
+        dailyAppUsage(selectedRange),
+        headlines,
+    ) { stats, apps, summary ->
+        RangeDashboard(selected, selectedRange, stats, apps, summary, loading = false)
+    }.onStart { emit(RangeDashboard(selected, selectedRange)) }
 }

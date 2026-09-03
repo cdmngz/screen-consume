@@ -6,11 +6,11 @@ import org.junit.Test
 
 class AppHistoryRangeTest {
     @Test
-    fun `current year stops today`() {
+    fun `current year includes all twelve months`() {
         val today = LocalDate.of(2026, 8, 28)
 
         assertEquals(LocalDate.of(2026, 1, 1), appHistoryYearRange(today, 0).start)
-        assertEquals(today, appHistoryYearRange(today, 0).endInclusive)
+        assertEquals(LocalDate.of(2026, 12, 31), appHistoryYearRange(today, 0).endInclusive)
     }
 
     @Test
@@ -25,7 +25,7 @@ class AppHistoryRangeTest {
     fun `negative offset cannot navigate into the future`() {
         val today = LocalDate.of(2026, 8, 28)
 
-        assertEquals(today, appHistoryYearRange(today, -1).endInclusive)
+        assertEquals(LocalDate.of(2026, 12, 31), appHistoryYearRange(today, -1).endInclusive)
     }
 
     @Test
@@ -67,14 +67,14 @@ class AppHistoryRangeTest {
     }
 
     @Test
-    fun `semester navigation covers preceding calendar half year`() {
+    fun `current calendar periods include future days`() {
         val today = LocalDate.of(2026, 9, 2)
-        val current = appHistoryRange(today, AppHistoryPreset.SEMESTER, 0)
-        assertEquals(LocalDate.of(2026, 7, 1), current.start)
-        assertEquals(today, current.endInclusive)
-        val previous = appHistoryRange(today, AppHistoryPreset.SEMESTER, 1)
-        assertEquals(LocalDate.of(2026, 1, 1), previous.start)
-        assertEquals(LocalDate.of(2026, 6, 30), previous.endInclusive)
+        val week = appHistoryRange(today, AppHistoryPreset.WEEK, 0)
+        assertEquals(LocalDate.of(2026, 8, 31), week.start)
+        assertEquals(LocalDate.of(2026, 9, 6), week.endInclusive)
+        val month = appHistoryRange(today, AppHistoryPreset.MONTH, 0)
+        assertEquals(LocalDate.of(2026, 9, 1), month.start)
+        assertEquals(LocalDate.of(2026, 9, 30), month.endInclusive)
     }
 
     @Test
@@ -82,10 +82,10 @@ class AppHistoryRangeTest {
         val today = LocalDate.of(2026, 9, 2)
         assertEquals(today.minusDays(1), appHistoryRange(today, AppHistoryPreset.TODAY, 1).start)
         val week = appHistoryRange(today, AppHistoryPreset.WEEK, 1)
-        assertEquals(today.minusDays(13), week.start)
-        assertEquals(today.minusDays(7), week.endInclusive)
+        assertEquals(LocalDate.of(2026, 8, 24), week.start)
+        assertEquals(LocalDate.of(2026, 8, 30), week.endInclusive)
         AppHistoryPreset.entries.forEach { preset ->
-            assertEquals(today, appHistoryRange(today, preset, -1).endInclusive)
+            assertEquals(appHistoryRange(today, preset, 0), appHistoryRange(today, preset, -1))
         }
     }
 }

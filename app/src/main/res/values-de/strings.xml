@@ -12,8 +12,6 @@
     <string name="week">Woche</string>
     <string name="previous_day">Vorheriger Tag</string>
     <string name="next_day">Nächster Tag</string>
-    <string name="previous_year">Vorheriges Jahr</string>
-    <string name="next_year">Nächstes Jahr</string>
     <string name="month">Monat</string>
     <string name="year">Jahr</string>
     <string name="custom_range">Benutzerdefinierter Zeitraum</string>
@@ -26,17 +24,10 @@
     <string name="evening">Abend</string>
     <string name="night">Nacht</string>
     <string name="most_used_apps">Meistgenutzte Apps</string>
-    <plurals name="search_results"><item quantity="one">%1$d Suchergebnis</item><item quantity="other">%1$d Suchergebnisse</item></plurals>
     <plurals name="showing_all_apps"><item quantity="one">%1$d App wird angezeigt</item><item quantity="other">Alle %1$d Apps werden angezeigt</item></plurals>
-    <string name="search_by_app_name">Nach App-Name suchen</string>
     <string name="no_usage_period">Für diesen Zeitraum wurde noch keine Nutzung erfasst.</string>
-    <string name="no_search_matches">Keine App entspricht deiner Suche.</string>
     <string name="open_settings">Einstellungen öffnen</string>
-    <string name="hide_app_search">App-Suche ausblenden</string>
-    <string name="search_apps">Apps suchen</string>
     <string name="back_to_dashboard">Zurück zur Übersicht</string>
-    <plurals name="launch_count"><item quantity="one">%1$d Öffnung</item><item quantity="other">%1$d Öffnungen</item></plurals>
-    <string name="usage_over_time">Nutzung im Zeitverlauf</string>
     <string name="no_app_usage_period">Für diese App wurde in diesem Zeitraum keine Nutzung erfasst.</string>
     <string name="usage_trend_chart_description">Täglicher Nutzungsverlauf mit auswählbaren Daten</string>
     <string name="calendar">Kalender</string>
@@ -73,7 +64,6 @@
     <string name="end">Ende</string>
     <string name="apply">Anwenden</string>
     <string name="today">Heute</string>
-    <string name="semester">Halbjahr</string>
     <string name="full_day">Ganzer Tag</string>
     <string name="full_period">Gesamter Zeitraum</string>
     <string name="total_day_time">Gesamtzeit am Tag</string>
@@ -84,5 +74,7 @@
     <string name="top_consecutive_days">Längste Nutzungsserien</string>
     <string name="previous_period">Vorheriger Zeitraum</string>
     <string name="next_period">Nächster Zeitraum</string>
-    <string name="close">Schließen</string>
+    <string name="hourly_usage_unavailable">Für diesen Tag sind keine stündlichen Nutzungsdaten verfügbar.</string>
+    <string name="previous_chart_point">Vorheriger Diagrammwert</string>
+    <string name="next_chart_point">Nächster Diagrammwert</string>
 </resources>

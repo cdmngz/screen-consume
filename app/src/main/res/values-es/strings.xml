@@ -12,8 +12,6 @@
     <string name="week">Semana</string>
     <string name="previous_day">Día anterior</string>
     <string name="next_day">Día siguiente</string>
-    <string name="previous_year">Año anterior</string>
-    <string name="next_year">Año siguiente</string>
     <string name="month">Mes</string>
     <string name="year">Año</string>
     <string name="custom_range">Periodo personalizado</string>
@@ -26,17 +24,10 @@
     <string name="evening">Atardecer</string>
     <string name="night">Noche</string>
     <string name="most_used_apps">Apps más usadas</string>
-    <plurals name="search_results"><item quantity="one">%1$d resultado de búsqueda</item><item quantity="many">%1$d resultados de búsqueda</item><item quantity="other">%1$d resultados de búsqueda</item></plurals>
     <plurals name="showing_all_apps"><item quantity="one">Mostrando %1$d app</item><item quantity="many">Mostrando las %1$d apps</item><item quantity="other">Mostrando las %1$d apps</item></plurals>
-    <string name="search_by_app_name">Buscar por nombre de app</string>
     <string name="no_usage_period">Todavía no hay uso registrado para este periodo.</string>
-    <string name="no_search_matches">Ninguna app coincide con la búsqueda.</string>
     <string name="open_settings">Abrir ajustes</string>
-    <string name="hide_app_search">Ocultar búsqueda de apps</string>
-    <string name="search_apps">Buscar apps</string>
     <string name="back_to_dashboard">Volver al inicio</string>
-    <plurals name="launch_count"><item quantity="one">%1$d apertura</item><item quantity="many">%1$d aperturas</item><item quantity="other">%1$d aperturas</item></plurals>
-    <string name="usage_over_time">Uso a lo largo del tiempo</string>
     <string name="no_app_usage_period">No se registró uso de esta app durante este periodo.</string>
     <string name="usage_trend_chart_description">Tendencia diaria de uso con fechas seleccionables</string>
     <string name="calendar">Calendario</string>
@@ -73,7 +64,6 @@
     <string name="end">Fin</string>
     <string name="apply">Aplicar</string>
     <string name="today">Hoy</string>
-    <string name="semester">Semestre</string>
     <string name="full_day">Día completo</string>
     <string name="full_period">Período completo</string>
     <string name="total_day_time">Tiempo total del día</string>
@@ -84,5 +74,7 @@
     <string name="top_consecutive_days">Mejores rachas de días</string>
     <string name="previous_period">Período anterior</string>
     <string name="next_period">Período siguiente</string>
-    <string name="close">Cerrar</string>
+    <string name="hourly_usage_unavailable">El uso por horas no está disponible para este día.</string>
+    <string name="previous_chart_point">Valor anterior del gráfico</string>
+    <string name="next_chart_point">Valor siguiente del gráfico</string>
 </resources>

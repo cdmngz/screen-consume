@@ -1,6 +1,6 @@
 # Screen Consume privacy information
 
-**Effective date:** August 26, 2026
+**Effective date:** September 4, 2026
 
 **App:** Screen Consume
 
@@ -22,7 +22,7 @@ The app does not access camera, microphone, location, contacts, SMS, phone calls
 
 ## Data stored on the device
 
-Raw usage events and exact timestamps are processed in memory during aggregation and are not written to the database. The private Room database stores:
+Raw usage events and exact timestamps are processed in memory during aggregation and, when the user views an app's Today detail, to calculate its hourly chart. They are not written to the database. The private Room database stores:
 
 - application package name, display name, and optional Android category;
 - calendar date;

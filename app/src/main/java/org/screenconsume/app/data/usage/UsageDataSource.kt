@@ -6,9 +6,6 @@ import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.os.Build
 import android.os.Process
-import org.screenconsume.app.domain.model.UsageInterval
-
-data class UsageSnapshot(val intervals: List<UsageInterval>, val launches: Map<String, Int>)
 
 interface UsageDataSource {
     fun hasUsageAccess(): Boolean
@@ -33,25 +30,18 @@ class AndroidUsageDataSource(private val context: Context) : UsageDataSource {
         if (!hasUsageAccess()) return UsageSnapshot(emptyList(), emptyMap())
         val events = manager.queryEvents(beginMillis, endMillis)
         val event = UsageEvents.Event()
-        val foregroundStarts = mutableMapOf<String, Long>()
-        val intervals = mutableListOf<UsageInterval>()
-        val launches = mutableMapOf<String, Int>()
+        val sessions = UsageSessionTracker(beginMillis, endMillis)
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
             when (event.eventType) {
                 UsageEvents.Event.ACTIVITY_RESUMED -> {
-                    if (!foregroundStarts.containsKey(event.packageName)) {
-                        foregroundStarts[event.packageName] = maxOf(event.timeStamp, beginMillis)
-                        launches[event.packageName] = (launches[event.packageName] ?: 0) + 1
-                    }
+                    sessions.resume(event.packageName, event.className, event.timeStamp)
                 }
                 UsageEvents.Event.ACTIVITY_PAUSED, UsageEvents.Event.ACTIVITY_STOPPED -> {
-                    val start = foregroundStarts.remove(event.packageName)
-                    if (start != null && event.timeStamp > start) intervals += UsageInterval(event.packageName, start, minOf(event.timeStamp, endMillis))
+                    sessions.endActivity(event.packageName, event.className, event.timeStamp)
                 }
             }
         }
-        foregroundStarts.forEach { (pkg, start) -> if (endMillis > start) intervals += UsageInterval(pkg, start, endMillis) }
-        return UsageSnapshot(intervals, launches)
+        return sessions.snapshot()
     }
 }

@@ -12,8 +12,6 @@
     <string name="week">Week</string>
     <string name="previous_day">Previous day</string>
     <string name="next_day">Next day</string>
-    <string name="previous_year">Previous year</string>
-    <string name="next_year">Next year</string>
     <string name="month">Month</string>
     <string name="year">Year</string>
     <string name="custom_range">Custom range</string>
@@ -26,17 +24,10 @@
     <string name="evening">Evening</string>
     <string name="night">Night</string>
     <string name="most_used_apps">Most used apps</string>
-    <plurals name="search_results"><item quantity="one">%1$d search result</item><item quantity="other">%1$d search results</item></plurals>
     <plurals name="showing_all_apps"><item quantity="one">Showing %1$d app</item><item quantity="other">Showing all %1$d apps</item></plurals>
-    <string name="search_by_app_name">Search by app name</string>
     <string name="no_usage_period">No usage recorded for this period yet.</string>
-    <string name="no_search_matches">No apps match your search.</string>
     <string name="open_settings">Open settings</string>
-    <string name="hide_app_search">Hide app search</string>
-    <string name="search_apps">Search apps</string>
     <string name="back_to_dashboard">Back to dashboard</string>
-    <plurals name="launch_count"><item quantity="one">%1$d launch</item><item quantity="other">%1$d launches</item></plurals>
-    <string name="usage_over_time">Usage over time</string>
     <string name="no_app_usage_period">No usage was recorded for this app during this period.</string>
     <string name="usage_trend_chart_description">Daily app usage trend with selectable dates</string>
     <string name="calendar">Calendar</string>
@@ -73,7 +64,6 @@
     <string name="end">End</string>
     <string name="apply">Apply</string>
     <string name="today">Today</string>
-    <string name="semester">Semester</string>
     <string name="full_day">Full day</string>
     <string name="full_period">Full period</string>
     <string name="total_day_time">Total Day Time</string>
@@ -84,5 +74,7 @@
     <string name="top_consecutive_days">Top Consecutive days</string>
     <string name="previous_period">Previous period</string>
     <string name="next_period">Next period</string>
-    <string name="close">Close</string>
+    <string name="hourly_usage_unavailable">Hourly usage is unavailable for this day.</string>
+    <string name="previous_chart_point">Previous chart value</string>
+    <string name="next_chart_point">Next chart value</string>
 </resources>

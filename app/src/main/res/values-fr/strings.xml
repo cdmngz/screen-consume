@@ -12,8 +12,6 @@
     <string name="week">Semaine</string>
     <string name="previous_day">Jour précédent</string>
     <string name="next_day">Jour suivant</string>
-    <string name="previous_year">Année précédente</string>
-    <string name="next_year">Année suivante</string>
     <string name="month">Mois</string>
     <string name="year">Année</string>
     <string name="custom_range">Période personnalisée</string>
@@ -26,17 +24,10 @@
     <string name="evening">Soir</string>
     <string name="night">Nuit</string>
     <string name="most_used_apps">Applications les plus utilisées</string>
-    <plurals name="search_results"><item quantity="one">%1$d résultat de recherche</item><item quantity="many">%1$d résultats de recherche</item><item quantity="other">%1$d résultats de recherche</item></plurals>
     <plurals name="showing_all_apps"><item quantity="one">Affichage de %1$d application</item><item quantity="many">Affichage des %1$d applications</item><item quantity="other">Affichage des %1$d applications</item></plurals>
-    <string name="search_by_app_name">Rechercher par nom d’application</string>
     <string name="no_usage_period">Aucune utilisation enregistrée pour cette période.</string>
-    <string name="no_search_matches">Aucune application ne correspond à votre recherche.</string>
     <string name="open_settings">Ouvrir les paramètres</string>
-    <string name="hide_app_search">Masquer la recherche</string>
-    <string name="search_apps">Rechercher des applications</string>
     <string name="back_to_dashboard">Retour au tableau de bord</string>
-    <plurals name="launch_count"><item quantity="one">%1$d ouverture</item><item quantity="many">%1$d ouvertures</item><item quantity="other">%1$d ouvertures</item></plurals>
-    <string name="usage_over_time">Utilisation au fil du temps</string>
     <string name="no_app_usage_period">Aucune utilisation de cette application n’a été enregistrée durant cette période.</string>
     <string name="usage_trend_chart_description">Tendance quotidienne d’utilisation avec dates sélectionnables</string>
     <string name="calendar">Calendrier</string>
@@ -73,7 +64,6 @@
     <string name="end">Fin</string>
     <string name="apply">Appliquer</string>
     <string name="today">Aujourd’hui</string>
-    <string name="semester">Semestre</string>
     <string name="full_day">Journée complète</string>
     <string name="full_period">Période complète</string>
     <string name="total_day_time">Temps total du jour</string>
@@ -84,5 +74,7 @@
     <string name="top_consecutive_days">Meilleures séries de jours</string>
     <string name="previous_period">Période précédente</string>
     <string name="next_period">Période suivante</string>
-    <string name="close">Fermer</string>
+    <string name="hourly_usage_unavailable">L'utilisation par heure n’est pas disponible pour ce jour.</string>
+    <string name="previous_chart_point">Valeur précédente du graphique</string>
+    <string name="next_chart_point">Valeur suivante du graphique</string>
 </resources>

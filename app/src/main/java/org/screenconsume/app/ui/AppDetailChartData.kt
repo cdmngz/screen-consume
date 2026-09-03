@@ -16,6 +16,17 @@ internal fun horizontalPageOffset(horizontalDistance: Float, threshold: Float): 
     else -> null
 }
 
+/** Keep tick values exact while choosing readable minute or whole-hour steps. */
+internal fun usageAxisStepSeconds(peak: Long, intervals: Int): Long {
+    require(intervals > 0)
+    if (peak >= 3_600L) return ((peak - 1) / (3_600L * intervals) + 1) * 3_600L
+    return listOf(1L, 2L, 5L, 10L, 15L, 30L, 60L)
+        .first { it * 60L * intervals >= peak } * 60L
+}
+
+internal fun usageAxisLabel(seconds: Long): String =
+    if (seconds >= 3_600L) "${seconds / 3_600L}h" else "${seconds / 60L}m"
+
 internal fun yAxisLabelValues(maximum: Long): List<Long?> =
     (3 downTo 1).map { step -> (maximum * step / 3).takeIf { it > 0 } }
 
@@ -170,4 +181,31 @@ internal fun usagePatterns(days: List<DayUsage>): UsagePatterns {
         weekendSeconds = active.filter { it.date.dayOfWeek.value > 5 }.sumOf { it.usageSeconds },
         activeDays = active.map { it.date }.distinct().size,
     )
+}
+
+internal data class DetailChartPoint(val date: java.time.LocalDate, val hour: Int? = null, val seconds: Long?)
+
+internal fun detailChartPoints(
+    preset: AppHistoryPreset,
+    range: DateRange,
+    days: List<DayUsage>,
+    hourlySeconds: List<Long>?,
+    now: java.time.LocalDateTime,
+): List<DetailChartPoint> {
+    val today = now.toLocalDate()
+    val byDate = days.associate { it.date to it.usageSeconds }
+    return when (preset) {
+        AppHistoryPreset.TODAY -> (0..23).map { hour ->
+            val future = range.start.isAfter(today) || (range.start == today && hour > now.hour)
+            DetailChartPoint(range.start, hour, if (future) null else hourlySeconds?.getOrNull(hour))
+        }
+        AppHistoryPreset.YEAR -> (1..12).map { month ->
+            val date = java.time.LocalDate.of(range.start.year, month, 1)
+            DetailChartPoint(date, seconds = if (date.isAfter(today)) null else days
+                .filter { YearMonth.from(it.date) == YearMonth.from(date) && !it.date.isAfter(today) }
+                .sumOf { it.usageSeconds })
+        }
+        else -> generateSequence(range.start) { it.plusDays(1) }.takeWhile { !it.isAfter(range.endInclusive) }
+            .map { DetailChartPoint(it, seconds = if (it.isAfter(today)) null else byDate[it] ?: 0) }.toList()
+    }
 }

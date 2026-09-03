@@ -4,6 +4,9 @@ import android.content.Context
 import android.net.Uri
 import android.content.pm.ApplicationInfo
 import androidx.room.withTransaction
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import org.screenconsume.app.domain.analytics.hourlyUsageSeconds
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -70,6 +73,17 @@ class UsageRepository(
     fun appHistory(packageName: String, range: DateRange): Flow<List<DayUsage>> =
         database.usageDao().observeAppDays(packageName, range.start.toString(), range.endInclusive.toString())
             .map { rows -> rows.map { DayUsage(LocalDate.parse(it.date), it.usageSeconds) } }
+
+    /** Hourly detail is transient; only existing daily aggregates remain on disk. */
+    suspend fun appHourlyUsage(packageName: String, date: LocalDate): List<Long>? = withContext(Dispatchers.IO) {
+        if (!source.hasUsageAccess()) return@withContext null
+        val zone = ZoneId.systemDefault()
+        val start = date.atStartOfDay(zone).toInstant().toEpochMilli()
+        val end = minOf(date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli(), System.currentTimeMillis())
+        if (end <= start) return@withContext null
+        val intervals = source.read(start, end).intervals.filter { it.packageName == packageName }
+        if (intervals.isEmpty()) null else hourlyUsageSeconds(date, intervals, zone)
+    }
 
     fun dailyAppUsage(range: DateRange): Flow<List<DailyAppUsage>> =
         database.usageDao().observePortableRows(range.start.toString(), range.endInclusive.toString()).map { rows ->
