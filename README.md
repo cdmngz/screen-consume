@@ -51,7 +51,7 @@ The release APK is `app/build/outputs/apk/release/app-release-unsigned.apk`. Fol
 
 JVM tests cover aggregation, analytics, portability, and chart/range calculations. Connected tests cover Room behavior. These do not constitute a complete UI, accessibility, OEM, or security audit. Optional coverage generation uses `./gradlew createDebugUnitTestCoverageReport`; reports are under `app/build/reports/`.
 
-[Android CI](.github/workflows/android-ci.yml) runs JVM tests, lint, debug/release builds, a release bundle, and patch formatting checks on pushes and pull requests to `main`. Its runner uses Temurin 17; local validation uses Android Studio’s JBR. CI does not run connected tests or Detekt, sign releases, or publish the app. [Dependabot](.github/dependabot.yml) proposes dependency updates for human review.
+[Android CI](.github/workflows/android-ci.yml) runs separate jobs for JVM tests, Android lint, unused Kotlin code (Detekt), debug/release APK and bundle builds, and release privacy/security checks on pushes and pull requests to `main`. Jobs report independently and continue if another fails. The test job also checks committed patch formatting. Its runners use Temurin 17; local validation uses Android Studio’s JBR. CI does not run connected tests, sign releases, or publish the app. [Dependabot](.github/dependabot.yml) proposes dependency updates for human review.
 
 ## Architecture
 

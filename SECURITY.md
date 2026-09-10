@@ -19,6 +19,10 @@ The project has no formal supported-version or response-time commitment. Reports
 
 The authoritative source locations are [AndroidManifest.xml](app/src/main/AndroidManifest.xml), [backup rules](app/src/main/res/xml/backup_rules.xml), [data-extraction rules](app/src/main/res/xml/data_extraction_rules.xml), and [build configuration](app/build.gradle.kts). Source configuration does not replace inspection of the final distributable artifact.
 
+CI runs [release guardrails](scripts/check_release_security.py) against an unsigned release APK. It rejects changes to the reviewed permission allowlist, enabled backup/debug/test flags, unreviewed exported components or weakened component permissions, additional launcher intents, and Compose tooling components. It also decodes the APK’s backup XML resources and checks storage exclusions for cloud backup and device transfer. Regression tests deliberately weaken these settings to verify rejection. These checks do not establish the absence of all tracking code, vulnerabilities, or secrets and do not replace final signed-artifact review.
+
+To run the same checks locally after `./gradlew assembleRelease`, use `python3 -B -m unittest discover -s scripts -p 'test_*.py'` and `python3 -B scripts/check_release_security.py`. Make Android SDK `apkanalyzer` available on `PATH`, set `ANDROID_HOME`, or pass `--apkanalyzer /path/to/apkanalyzer`; use the Gradle JBR for `JAVA_HOME`. Changes to the allowlists require deliberate privacy/security review.
+
 ## Exports and restore limits
 
 CSV and JSON exports are plaintext and support an inclusive date range or all history. They stream one day of database rows at a time on the I/O dispatcher, avoiding a complete in-memory plaintext file. Encrypted backups still assemble the full payload in memory. A selected document provider can be cloud-backed. The app’s no-network permission does not constrain that provider or the external browser used to open the privacy policy.
