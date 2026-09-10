@@ -14,27 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
-    name: ${{ matrix.name }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - id: test
-            name: Unit tests
-            tasks: testDebugUnitTest
-          - id: lint
-            name: Android lint
-            tasks: lintDebug lintRelease
-          - id: unused-code
-            name: Unused Kotlin code
-            tasks: :app:detektDebug :app:detektRelease
-          - id: build
-            name: Build APKs and bundle
-            tasks: assembleDebug assembleRelease bundleRelease
-          - id: privacy-security
-            name: Privacy and release security
-            tasks: assembleRelease
+  test:
+    name: Unit tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -56,30 +37,175 @@ jobs:
         with:
           cache-read-only: ${{ github.event_name == 'pull_request' }}
 
-      - name: Run ${{ matrix.name }}
-        env:
-          GRADLE_TASKS: ${{ matrix.tasks }}
-        run: |
-          read -r -a gradle_tasks <<< "$GRADLE_TASKS"
-          ./gradlew "${gradle_tasks[@]}" --no-daemon
-
-      - name: Test privacy guardrails
-        if: matrix.id == 'privacy-security'
-        run: python3 -B -m unittest discover -s scripts -p 'test_*.py'
-
-      - name: Inspect release APK privacy and security
-        if: matrix.id == 'privacy-security'
-        run: python3 -B scripts/check_release_security.py
+      - name: Run Unit tests
+        run: ./gradlew testDebugUnitTest --no-daemon
 
       - name: Check committed patch formatting
-        if: matrix.id == 'test'
         run: git diff --check HEAD^ HEAD
 
       - name: Upload failure reports
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: android-ci-${{ matrix.id }}-reports
+          name: android-ci-${{ github.job }}-reports
+          path: |
+            app/build/reports/
+            app/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  lint:
+    name: Android lint
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Set up Java 17
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Run Android lint
+        run: ./gradlew lintDebug lintRelease --no-daemon
+
+      - name: Upload failure reports
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: android-ci-${{ github.job }}-reports
+          path: |
+            app/build/reports/
+            app/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  unused-code:
+    name: Unused Kotlin code
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Set up Java 17
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Run Unused Kotlin code
+        run: ./gradlew :app:detektDebug :app:detektRelease --no-daemon
+
+      - name: Upload failure reports
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: android-ci-${{ github.job }}-reports
+          path: |
+            app/build/reports/
+            app/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  build:
+    name: Build APKs and bundle
+    needs: unused-code
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Set up Java 17
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Run Build APKs and bundle
+        run: ./gradlew assembleDebug assembleRelease bundleRelease --no-daemon
+
+      - name: Upload failure reports
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: android-ci-${{ github.job }}-reports
+          path: |
+            app/build/reports/
+            app/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  privacy-security:
+    name: Privacy and release security
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Set up Java 17
+        uses: actions/setup-java@dd06d9cba3e5552c54d9f8ea23572deb30010f7c # v6.0.0
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
+      - name: Run Privacy and release security
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Test privacy guardrails
+        run: python3 -B -m unittest discover -s scripts -p 'test_*.py'
+
+      - name: Inspect release APK privacy and security
+        run: python3 -B scripts/check_release_security.py
+
+      - name: Upload failure reports
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: android-ci-${{ github.job }}-reports
           path: |
             app/build/reports/
             app/build/test-results/
