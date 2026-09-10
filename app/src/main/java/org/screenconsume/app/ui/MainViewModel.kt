@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -22,7 +23,7 @@ enum class RangePreset(val labelRes: Int) {
 }
 
 enum class AppHistoryPreset(val labelRes: Int) {
-    TODAY(R.string.today), WEEK(R.string.week), MONTH(R.string.month), YEAR(R.string.year)
+    TODAY(R.string.day), WEEK(R.string.week), MONTH(R.string.month), YEAR(R.string.year)
 }
 
 data class AppDetailUiState(
@@ -52,6 +53,10 @@ data class MainUiState(
     val operationMessage: String? = null,
     val operationInProgress: Boolean = false,
     val loading: Boolean = true,
+    val refreshing: Boolean = false,
+    val refreshFailed: Boolean = false,
+    val sortByName: Boolean = false,
+    val includeBrief: Boolean = false,
 )
 
 internal data class RangeDashboard(
@@ -62,10 +67,12 @@ internal data class RangeDashboard(
     val headlines: HeadlineStats = HeadlineStats(),
     val loading: Boolean = true,
 )
+private data class RefreshState(val running: Boolean = false, val failed: Boolean = false)
 private data class OperationState(val inProgress: Boolean = false, val message: String? = null)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MainViewModel(private val repository: UsageRepository) : ViewModel() {
+    private val refreshState = MutableStateFlow(RefreshState())
     private val selection = MutableStateFlow(RangePreset.TODAY to 0L)
     private val access = MutableStateFlow(repository.hasUsageAccess)
     private val operation = MutableStateFlow(OperationState())
@@ -73,24 +80,24 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
     private val appHistoryPreset = MutableStateFlow(AppHistoryPreset.WEEK)
     private val appHistoryPeriodOffset = MutableStateFlow(0L)
 
-    private val range = selection.map { (selected, offset) ->
-        val today = LocalDate.now()
-        selected to when (selected) {
-            RangePreset.TODAY -> DateRange.endingToday(1, today.minusDays(offset))
-            RangePreset.WEEK -> DateRange.endingToday(7, today.minusWeeks(offset))
-            RangePreset.MONTH -> YearMonth.from(today).minusMonths(offset).let { month ->
-                DateRange(month.atDay(1), minOf(month.atEndOfMonth(), today))
-            }
-            RangePreset.YEAR -> today.year.minus(offset.toInt()).let { year ->
-                DateRange(LocalDate.of(year, 1, 1), minOf(LocalDate.of(year, 12, 31), today))
-            }
+    private var selectionChanged = false
+    init {
+        viewModelScope.launch {
+            val saved = repository.dashboardPreferences.first()
+            if (!selectionChanged) selection.value = (RangePreset.entries.firstOrNull { it.name == saved.preset } ?: RangePreset.TODAY) to 0L
         }
+    }
+
+    private val range = selection.map { (selected, offset) ->
+        selected to appHistoryRange(LocalDate.now(), AppHistoryPreset.valueOf(selected.name), offset)
     }.distinctUntilChanged()
 
     private val rangeDashboard = observeRangeDashboard(range, repository::dashboard, repository::dailyAppUsage)
 
-    val state: StateFlow<MainUiState> = combine(access, rangeDashboard, repository.lastSuccessfulAggregationMillis, operation) { granted, dashboard, lastRun, task ->
-        MainUiState(granted, dashboard.preset, dashboard.range, dashboard.stats, dashboard.headlines, dashboard.dailyApps, lastRun, task.message, task.inProgress, dashboard.loading)
+    val state: StateFlow<MainUiState> = combine(access, rangeDashboard, repository.lastSuccessfulAggregationMillis, operation, refreshState) { granted, dashboard, lastRun, task, refresh ->
+        MainUiState(granted, dashboard.preset, dashboard.range, dashboard.stats, dashboard.headlines, dashboard.dailyApps, lastRun, task.message, task.inProgress, dashboard.loading, refresh.running, refresh.failed)
+    }.combine(repository.dashboardPreferences) { state, preferences ->
+        state.copy(sortByName = preferences.sortByName, includeBrief = preferences.includeBrief)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainUiState())
 
     val appDetail: StateFlow<AppDetailUiState?> = combine(selectedApp, appHistoryPreset, appHistoryPeriodOffset) { app, selected, offset ->
@@ -114,25 +121,46 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    fun selectPreset(value: RangePreset) { selection.value = value to 0L }
+    fun selectPreset(value: RangePreset) {
+        selectionChanged = true
+        selection.value = value to 0L
+        viewModelScope.launch { repository.setDashboardPreset(value.name) }
+    }
+    fun setSortByName(value: Boolean) { viewModelScope.launch { repository.setDashboardSort(value) } }
+    fun setIncludeBrief(value: Boolean) { viewModelScope.launch { repository.setDashboardBrief(value) } }
     fun movePeriod(periodsOlder: Long) {
+        selectionChanged = true
         selection.update { (preset, offset) -> preset to (offset + periodsOlder).coerceAtLeast(0) }
     }
     fun openApp(app: AppUsage) {
+        val (preset, offset) = selection.value
+        appHistoryPreset.value = AppHistoryPreset.valueOf(preset.name)
+        appHistoryPeriodOffset.value = offset
         selectedApp.value = app
-        appHistoryPreset.value = AppHistoryPreset.WEEK
-        appHistoryPeriodOffset.value = 0
     }
     fun closeApp() { selectedApp.value = null; appHistoryPeriodOffset.value = 0 }
     fun selectAppHistoryPreset(value: AppHistoryPreset) { appHistoryPeriodOffset.value = 0; appHistoryPreset.value = value }
     fun moveAppHistoryPeriod(periodsOlder: Long) {
         appHistoryPeriodOffset.value = (appHistoryPeriodOffset.value + periodsOlder).coerceAtLeast(0)
     }
-    fun clearOperationMessage() { operation.value = OperationState() }
+    fun clearOperationMessage() { operation.update { it.copy(message = null) } }
 
     fun refresh() {
         access.value = repository.hasUsageAccess
-        if (access.value) viewModelScope.launch { repository.aggregate(LocalDate.now()) }
+        if (access.value && !refreshState.value.running) {
+            refreshState.value = RefreshState(running = true)
+            viewModelScope.launch {
+                try {
+                    repository.aggregate(LocalDate.now())
+                    refreshState.value = RefreshState()
+                } catch (cancelled: CancellationException) {
+                    refreshState.value = RefreshState()
+                    throw cancelled
+                } catch (_: Exception) {
+                    refreshState.value = RefreshState(failed = true)
+                }
+            }
+        }
     }
 
     fun exportCsv(uri: Uri, range: DateRange?) = perform("CSV export") {
@@ -145,11 +173,15 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
     fun restore(uri: Uri, password: CharArray?) = perform("Restore") { repository.restore(uri, password) }
 
     private fun perform(label: String, block: suspend () -> Int) {
+        if (operation.value.inProgress) return
+        operation.value = OperationState(inProgress = true)
         viewModelScope.launch {
-            operation.value = OperationState(inProgress = true)
             operation.value = try {
                 val count = block()
                 OperationState(message = "$label complete: $count daily app records")
+            } catch (cancelled: CancellationException) {
+                operation.value = OperationState()
+                throw cancelled
             } catch (error: Exception) {
                 OperationState(message = "$label failed: ${error.message ?: "unknown error"}")
             }
@@ -198,7 +230,7 @@ internal fun observeRangeDashboard(
     dashboard: (DateRange) -> Flow<DashboardStats>,
     dailyAppUsage: (DateRange) -> Flow<List<DailyAppUsage>>,
 ): Flow<RangeDashboard> = ranges.flatMapLatest { (selected, selectedRange) ->
-    val day = selectedRange.endInclusive
+    val day = minOf(selectedRange.endInclusive, LocalDate.now())
     val month = YearMonth.from(day)
     val monthRange = DateRange(month.atDay(1), minOf(month.atEndOfMonth(), LocalDate.now()))
     val headlines = combine(

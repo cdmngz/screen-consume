@@ -1,21 +1,16 @@
-# Store screenshot capture checklist
+# Store screenshot capture
 
-Capture screenshots from a release-equivalent build on a phone-sized API 26+ emulator or device. Use synthetic or non-personal usage history and avoid showing package names, app labels, or routines that reveal personal information.
+Use a release-equivalent build and synthetic or non-personal usage history. Package names, labels, dates, and routines can reveal private information. Existing `publicity-*-v1.png` files are drafts; review or recapture them when the UI changes.
 
-Recommended portrait captures:
+Suggested portrait sequence:
 
-1. Dashboard — today, with Total Day Time, the selected-month average, and period buttons visible.
-2. Dashboard — month view, showing all month-week slots and the most-used-app list (no 0-minute entries).
-3. App detail — period navigation, a selected trend dot, and compact all-time/period/most-used-day/active-days cards.
-4. App detail — calendar with weekday/month labels and a selected date.
-5. App detail — Top Consecutive days with at most five ranked streaks.
-6. Settings — export, encrypted backup, collection health, and privacy-policy access.
+1. Dashboard: daily total, monthly average, date controls, and collection freshness.
+2. Month dashboard: chart and comparison dates; do not imply that missing records mean zero usage.
+3. App list: search, sorting, and the brief-usage option.
+4. App detail: selected chart point and all-time/period/most-used-day/active-days cards.
+5. App detail: calendar or consecutive-use streaks with readable dates.
+6. Settings: date-range/all-history CSV/JSON export, encrypted backup, collection health, and privacy-policy link.
 
-Before upload:
+Before upload, use a consistent device size, locale, and theme; remove personal notifications and account details; check text at thumbnail size; and confirm that the images match the release being listed. Keep original captures and avoid decorations that hide controls. Verify current image-format and size requirements in Play Console at upload time.
 
-- Use a consistent device, theme, locale, and status-bar treatment.
-- Verify text is readable at Play Store thumbnail size.
-- Do not add device frames that obscure the interface.
-- Export lossless PNG or high-quality JPEG.
-- Google Play requires at least two phone screenshots; upload four to six for a clearer product story.
-
+Do not capture real exports, backup passwords, or signing information. A screenshot of the export controls does not require creating an export.

@@ -1,19 +1,19 @@
 Understand how you spend time on your Android device without sending your usage history to a remote service.
 
-Screen Consume turns Android Usage Access events into compact daily summaries stored locally on your phone. Explore today’s screen time, current-month averages, app usage trends, interactive calendars, streaks, and weekday versus weekend patterns.
+Screen Consume turns Android Usage Access events into compact daily summaries stored locally on your phone. Explore today’s screen time, current-month averages, app usage trends, interactive calendars, and consecutive-use streaks.
 
 KEY FEATURES
 
 • Daily, weekly, monthly, and yearly usage breakdowns
 • Today’s total screen time and current-month daily average
-• Comparisons with the previous month’s daily average
-• Searchable app totals with observed launch counts
+• Recorded totals compared with the preceding period
+• Searchable app totals sorted by usage or name
 • Detailed app trends and a date-based usage calendar
-• Consecutive-use streaks and usage-pattern summaries
-• CSV and JSON export through Android’s document picker
+• Consecutive-use streaks and active-day totals
+• Date-range or all-history CSV and JSON export through Android’s document picker
 • Password-encrypted backup and restore
 • Automatic light and dark themes
-• English and Spanish interface
+• English, Spanish, Italian, French, Portuguese, and German interface
 
 PRIVACY FIRST
 

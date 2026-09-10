@@ -8,6 +8,38 @@ import org.junit.Test
 import org.screenconsume.app.data.database.PortableUsageRow
 
 class DataPortabilityTest {
+    @Test fun `streamed JSON round trips multiple and empty batches`() {
+        val rows = listOf(
+            PortableUsageRow("2026-01-01", "example.one", "Comma, quote \" and newline\n", null, 60, 1, 60, 0, 0, 0),
+            PortableUsageRow("2026-01-02", "example.two", "Café 日本", "Tools", 90, 2, 0, 90, 0, 0),
+        )
+        val writer = java.io.StringWriter()
+        val stream = DataPortability.StreamWriter(writer, csv = false)
+        stream.append(rows.take(1))
+        stream.append(emptyList())
+        stream.append(rows.drop(1))
+        stream.finish()
+        assertEquals(2, stream.count)
+        assertEquals(rows, DataPortability.fromJson(writer.toString().toByteArray()))
+    }
+
+    @Test fun `streamed CSV has one header and preserves escaping across batches`() {
+        val row = PortableUsageRow("2026-01-01", "example.app", "Example, \"App\"\nsecond line", null, 60, 1, 60, 0, 0, 0)
+        val writer = java.io.StringWriter()
+        val stream = DataPortability.StreamWriter(writer, csv = true)
+        stream.append(listOf(row))
+        stream.append(listOf(row))
+        stream.finish()
+        assertEquals(DataPortability.toCsv(listOf(row, row)).toString(Charsets.UTF_8), writer.toString())
+        assertEquals(1, Regex("date,packageName").findAll(writer.toString()).count())
+    }
+
+    @Test fun `empty streamed JSON remains a valid restore file`() {
+        val writer = java.io.StringWriter()
+        DataPortability.StreamWriter(writer, csv = false).finish()
+        assertTrue(DataPortability.fromJson(writer.toString().toByteArray()).isEmpty())
+    }
+
     @Test fun `csv escapes commas and quotes`() {
         val row = PortableUsageRow("2026-01-01", "example.app", "Example, \"App\"", null, 60, 1, 60, 0, 0, 0)
         val csv = DataPortability.toCsv(listOf(row)).toString(Charsets.UTF_8)

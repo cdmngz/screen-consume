@@ -1,67 +1,58 @@
 # Security policy and model
 
-Screen Consume is an independent proof of concept that handles sensitive behavioral information. This document describes the reviewed source implementation and its limits; it is not a claim that the application is completely secure, production-hardened, or endorsed by Google or Android.
-
-## Project status
-
-There is currently no formal supported-version or security-fix commitment. Security reports concerning the latest revision are welcome, but response times and release timelines are not guaranteed for this proof of concept.
+Screen Consume handles sensitive usage history. This document describes source-level safeguards and known limits, not an independent security certification. User-facing data practices are in [PRIVACY.md](PRIVACY.md).
 
 ## Reporting a vulnerability
 
-Prefer a private GitHub security advisory for this repository. Do not include personal usage exports, passwords, private keys, or signing material in a public issue. If private reporting is unavailable, open a minimal public issue requesting a private contact channel without publishing exploit details or sensitive data.
+If GitHub offers **Report a vulnerability** on this repository’s Security tab, use that private channel. Otherwise, open a minimal [issue](https://github.com/cdmngz/screen-consume/issues) requesting a private contact channel. Do not publish exploit details, usage exports, passwords, or signing material.
 
-## Current security boundaries
+The project has no formal supported-version or response-time commitment. Reports about the latest revision are welcome.
 
-- The release variant is configured with `android:debuggable=false`, code shrinking, resource shrinking, and the optimized default ProGuard rules.
-- Compose tooling is a `debugImplementation`; no preview activity is declared in the application manifest.
-- The app declares `android.permission.PACKAGE_USAGE_STATS`. WorkManager adds `WAKE_LOCK` and `RECEIVE_BOOT_COMPLETED` so periodic aggregation can run and be rescheduled after reboot; AndroidX also adds an app-scoped signature permission for non-exported dynamic receivers. The app does not request `INTERNET` or broad file access. WorkManager's unused network-state and foreground-service permissions are explicitly removed during manifest merging.
-- Android automatic application backup is disabled with `android:allowBackup="false"`, legacy full-backup exclusions, and Android 12+ cloud/device-transfer exclusions.
-- The only app-defined exported component is the launcher `MainActivity`, required for launching from the home screen. It exposes no custom deep link or intent API. Merged AndroidX manifests also expose WorkManager's job service behind the system-only `BIND_JOB_SERVICE` permission and diagnostics/profile receivers behind the system-only `DUMP` permission; ordinary applications cannot invoke them.
-- Room and DataStore live in the application's private Android sandbox. No content provider, WebView, native/JNI library, dynamic code loader, shell execution, APK installer, accessibility service, or external network service is implemented.
-- No online integration is exposed in the interface. No authentication, API client, credential storage, token handling, sync worker, or `SyncProvider` implementation ships. An integration must not be represented as functional until those boundaries are deliberately designed and reviewed.
-- Raw `UsageEvents`, exact timestamps, and individual foreground intervals are held only while aggregating or calculating the transient hourly chart for an app's Today detail. The persisted records are daily per-app aggregates.
-- Restore reads only a document explicitly selected through the system picker, applies a 25 MB input limit and 250,000-record limit, validates field lengths and usage totals, and writes through a Room transaction.
+## Current safeguards
 
-These statements describe the reviewed source configuration. Device firmware, the Android operating system, installed document providers, build host, and third-party dependency integrity remain outside the application's direct control.
+- No `INTERNET` permission or implemented network client, analytics, advertising, account system, or synchronization provider.
+- Usage Access is explicitly granted in Android Settings. WorkManager contributes wake-lock and boot-completed permissions; unused network-state and foreground-service permissions are removed during manifest merging.
+- Android automatic backup is disabled with `allowBackup="false"` and backup/device-transfer exclusion rules.
+- Room, DataStore, and WorkManager state use app-private storage. Raw usage events and activity timestamps are processed in memory; persisted usage records are daily aggregates.
+- The release variant is non-debuggable, minified, and resource-shrunk. Compose tooling is a debug-only dependency.
+- The only app-defined exported component is the launcher activity, with no custom deep-link API. AndroidX contributes a non-exported initialization provider and other library components. Exported job/diagnostic/profile components are protected by `BIND_JOB_SERVICE` or `DUMP`; inspect the merged release manifest after dependency changes.
 
-The first-run **No internet connection** statement is accurate for the reviewed app itself. It does not prevent a user-selected Storage Access Framework provider from copying an explicitly exported file to cloud storage under that provider's own permissions and behavior.
+The authoritative source locations are [AndroidManifest.xml](app/src/main/AndroidManifest.xml), [backup rules](app/src/main/res/xml/backup_rules.xml), [data-extraction rules](app/src/main/res/xml/data_extraction_rules.xml), and [build configuration](app/build.gradle.kts). Source configuration does not replace inspection of the final distributable artifact.
 
-## Sensitive data
+## Exports and restore limits
 
-The private Room database stores package name, display name, optional Android app category, date, usage duration, foreground-resume count, and morning/afternoon/evening/night totals. DataStore records onboarding completion and the timestamp of the last successful aggregation. Together, these can reveal habits, interests, schedules, and installed/used applications.
+CSV and JSON exports are plaintext and support an inclusive date range or all history. They stream one day of database rows at a time on the I/O dispatcher, avoiding a complete in-memory plaintext file. Encrypted backups still assemble the full payload in memory. A selected document provider can be cloud-backed. The app’s no-network permission does not constrain that provider or the external browser used to open the privacy policy.
 
-The Room database is not application-level encrypted. Its primary protections are the Android application sandbox, device lock, and platform storage protections. A rooted or compromised device, privileged malware, unlocked-device access, debugging of a debug build, or compromise of the operating system may expose it.
+Encrypted `.scb` files use AES-256-GCM with a 128-bit authentication tag, random 16-byte salt, and random 12-byte IV. PBKDF2-HMAC-SHA256 derives a 256-bit key using 210,000 iterations. Incorrect passwords or modified ciphertext fail authentication. Password strength remains important; there is no recovery mechanism. Repository password arrays are cleared after use, but UI strings and plaintext buffers are not guaranteed to be erased from process memory immediately.
 
-## Usage Access
+Restore reads a user-selected file, limits input to 25 MiB and 250,000 records, validates string lengths, dates, nonnegative usage/count values and matching time-of-day totals, and applies changes transactionally. Matching app/date records are overwritten; repeated restores do not add duplicate daily rows. See [UsageRepository.kt](app/src/main/java/org/screenconsume/app/data/repository/UsageRepository.kt) and [DataPortability.kt](app/src/main/java/org/screenconsume/app/data/export/DataPortability.kt).
 
-The user must explicitly grant Android Usage Access in system settings. That access lets Screen Consume observe usage events containing package names and event timestamps retained by Android. Screen Consume does not use Accessibility services and does not capture screen content, typed text, notification contents, camera, microphone, contacts, SMS, calls, location, clipboard, or device identifiers.
+Known portability limits:
 
-Revoking Usage Access stops new collection but does not delete aggregates already stored. Application storage can be cleared through Android Settings, or the app can be uninstalled, to remove local records.
+- Export has no corresponding size/record cap. A sufficiently large exported backup can exceed the current restore limits.
+- All-time export and backup end at today. Future-dated records accepted from an imported file are not included.
+- JSON validation does not establish the file’s origin or prove that its usage history is accurate.
+- CSV quoting preserves CSV syntax but does not neutralize spreadsheet formulas in app labels or other imported text. Treat those fields as untrusted when opening CSV in a spreadsheet.
 
-## Exports, restore, and backups
+## Protection limits
 
-- CSV and JSON exports are plaintext. Anyone or any service with access to those destination files can read them.
-- Files are selected through Android's Storage Access Framework. A user-selected document provider may be cloud-backed; choosing it can cause data to leave the device under that provider's behavior.
-- `.scb` backups use AES-256-GCM with a random 16-byte salt and 12-byte IV. Their key is derived with PBKDF2-HMAC-SHA256 using 210,000 iterations. Authentication detects modification or an incorrect password.
-- Backup security depends on password strength. The password is not stored and cannot be recovered. UI password text may remain in process memory until garbage collection even though repository-level character arrays are cleared after use.
-- Import validation reduces accidental or hostile resource use but does not make untrusted files risk-free. Import only files from a trusted source.
-- Automatic Android backup remains disabled; exports happen only after a user selects a destination. The application has no implemented automatic remote synchronization.
+The local database is not application-level encrypted. The design relies on Android’s sandbox, device storage protections, and a trusted operating system. It does not protect history against root access, a compromised OS, debugging of a debug build, or someone using an unlocked device. Exported copies are outside the app’s control and must be deleted separately.
 
-## Signing and release requirements
+A collection timestamp is a freshness indicator, not a completeness guarantee. Android event retention, revoked access, and delayed background work can leave gaps. The project has not undergone a broad independent security or device-manufacturer audit.
 
-Android updates must be signed by the same release identity. Private signing keys and credentials are maintained outside Git and must not be committed, uploaded, regenerated, replaced, printed, or exposed. Release signing is not wired into Gradle or GitHub Actions; `assembleRelease` produces an unsigned APK and signing is a separate authorized maintainer operation.
+## Signing and release
 
-Before distributing or installing a release:
+For a manual source commit, review `git status --short` and the complete diff, including new files. Stage only the intended source, tests, translations, documentation, and store copy. Review `git diff --cached` and run `git diff --cached --check` before committing. Keep local configuration, signing material, generated builds, usage exports, and personal captures out of the index; ignore rules do not protect files already tracked by Git.
 
-1. Run unit tests, release lint, and `assembleRelease`.
-2. Sign with the existing identity without placing passwords on the command line or in tracked files.
-3. Verify the final APK certificate, `android:debuggable` state, permissions, exported components, and absence of debug-only components.
-4. Record the APK SHA-256 through a trusted release channel.
+Use the established release identity so updates remain compatible. Never commit, upload, print, replace, or regenerate signing keys or credentials as part of routine work. Detailed repository rules are in [AGENTS.md](AGENTS.md#signing-and-secrets).
 
-Never expose the signing identity to pull-request automation or sign untrusted code.
+`assembleRelease` produces an unsigned APK. Release signing is a separate authorized maintainer step; CI does not sign or publish.
 
-## Threat assumptions and recommendations
+Before distribution:
 
-The current model assumes a normally secured, non-rooted Android device; a trusted OS and build machine; explicit user control of Usage Access and document destinations; and review of dependencies and release artifacts. It does not defend against a compromised OS, root-level access, malicious accessibility software, physical access to an unlocked device, weak backup passwords, or disclosure after plaintext export.
+1. Run the applicable checks in [AGENTS.md](AGENTS.md#build-and-verification), including release lint and assembly.
+2. Sign with the existing identity without placing passwords in command-line arguments or tracked configuration.
+3. Verify the final certificate, permissions, exported components, non-debuggable state, and absence of debug-only components.
+4. Record the final APK SHA-256 through the release channel.
 
-Recommended ongoing controls—not current guarantees—include enabling GitHub Dependabot alerts/security updates and branch protection, reviewing every dependency update, periodically auditing the final release APK, protecting and separately backing up the release signing identity, and considering Room encryption only after evaluating key management and recovery tradeoffs.
+Dependency updates require human review. CI actions are pinned to commit SHAs and use explicit minimal permissions; do not expose signing material or other secrets to untrusted code.

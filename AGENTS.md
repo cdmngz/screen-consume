@@ -21,7 +21,7 @@ The project has one Android application module and uses a small manual `AppConta
 - `data/database/`: Room entities, DAO, database, and portable query rows. Daily usage is uniquely keyed by `(date, appId)`.
 - `data/repository/`: collection, transactional persistence, dashboards, exports, and restore.
 - `data/export/`: pure CSV/JSON serialization, validation, and encrypted backup primitives.
-- `data/preferences/`: DataStore preferences for onboarding and collection health only.
+- `data/preferences/`: DataStore collection-health and dashboard preferences, plus a reserved, currently unused onboarding flag.
 - `data/sync/`: unimplemented provider abstraction; no network provider currently ships.
 - `domain/model/` and `domain/analytics/`: framework-light models, date ranges, aggregation, and derived analytics.
 - `ui/`: Compose/Material 3 screens and `MainViewModel`.
@@ -71,6 +71,14 @@ Run checks proportional to the change:
 - Review release notes, advisories, and the resolved graph. Coordinate Gradle, Android Gradle Plugin, Kotlin, KSP, and Compose tooling upgrades.
 - Room 2.8.4 is the currently validated version. A clean build with schema export enabled succeeded on August 27, 2026; review the committed schema and rerun a clean build when upgrading it again.
 - Keep the wrapper distribution checksum synchronized with Gradle's official checksum. Do not casually generate dependency locks or verification metadata; introduce them only in a dedicated reviewed change.
-- GitHub Actions are not required for Dependabot. Any future workflow must have minimal explicit `permissions`, pin third-party actions to full commit SHAs, avoid secrets for untrusted code, and never sign or publish using the local identity.
+- The existing Android CI workflow runs tests, lint, and unsigned builds. Every workflow must have minimal explicit `permissions`, pin third-party actions to full commit SHAs, avoid secrets for untrusted code, and never sign or publish using the local identity. Dependabot does not require a workflow.
 
 Do not clean, rewrite, or discard unrelated user changes in a dirty worktree.
+
+## Documentation maintenance
+
+- Keep `README.md` focused on current features, setup, and navigation to other documents. `PRIVACY.md` owns user-facing data practices; `SECURITY.md` owns technical safeguards and known limits; this file owns contributor rules.
+- Check statements against source and, for shipped security boundaries, the merged release manifest and artifact. Do not describe unused interfaces or proposed features as available.
+- Update all six in-app privacy translations and store copy when their claims change. CSV/JSON export supports a selected date range or all history; encrypted backups remain all-history.
+- Do not claim that zero recorded usage or a successful collection timestamp proves complete coverage, that local history is database-encrypted, or that a cloud-backed document provider is constrained by the app’s lack of Internet permission.
+- Preserve privacy, signing, and verification requirements when consolidating documentation. Changes to prose must not silently change product boundaries.

@@ -1,68 +1,64 @@
-# Screen Consume privacy information
+# Screen Consume privacy policy
 
-**Effective date:** September 4, 2026
+**Last updated:** September 10, 2026
 
 **App:** Screen Consume
 
-**Public developer name:** CD Apps
+**Developer:** CD Apps
 
-**Privacy and support contact:** [GitHub Issues](https://github.com/cdmngz/screen-consume/issues)
+**Project and support:** [GitHub repository](https://github.com/cdmngz/screen-consume)
 
-**Source and project page:** [github.com/cdmngz/screen-consume](https://github.com/cdmngz/screen-consume)
+This policy describes the current app’s data practices. Screen Consume is an independent project and is not affiliated with Google, Android, or Digital Wellbeing.
 
-Screen Consume is an independent proof of concept and is not affiliated with or endorsed by Google, Android, or the Digital Wellbeing team. This document describes behavior implemented in the reviewed source code. It does not by itself verify a separately distributed APK and does not cover modified builds, the Android operating system, device manufacturers, or third-party document providers selected by the user.
+## What the app reads
 
-## Data the app accesses
+With your explicit permission in Android’s Usage Access settings, Screen Consume reads app activity events to calculate usage summaries. It processes package names, activity class names, foreground resume/pause/stop events, and exact event timestamps. It also looks up app labels, icons, and categories when Android makes them available.
 
-After the user grants Usage Access in Android Settings, Screen Consume reads Android `UsageEvents` for requested time ranges. Events can contain application package names, foreground resume/pause/stop types, and exact event timestamps.
+The app does not capture screen contents or read camera, microphone, location, contacts, messages, calls, notification contents, clipboard contents, advertising identifiers, or device identifiers. It does not use an Accessibility service or request broad storage access.
 
-The app also asks Android's package manager for the display label and category of an observed package when available. This is used to make local reports readable. Screen Consume does not enumerate and persist a complete inventory of installed applications.
+## What stays on your device
 
-The app does not access camera, microphone, location, contacts, SMS, phone calls, notification contents, clipboard, accessibility data, advertising identifiers, or other device identifiers. It requests no broad storage permission.
+The app processes raw events and exact timestamps in memory, including when calculating an hourly app-detail chart. It does not save an individual-event or exact app-open log.
 
-## Data stored on the device
+Its private database stores these daily summaries:
 
-Raw usage events and exact timestamps are processed in memory during aggregation and, when the user views an app's Today detail, to calculate its hourly chart. They are not written to the database. The private Room database stores:
+- App package name, display name, and optional Android category.
+- Calendar date and total foreground usage seconds.
+- Observed foreground-resume count, called a launch count in exported data.
+- Usage seconds grouped into morning, afternoon, evening, and night.
 
-- application package name, display name, and optional Android category;
-- calendar date;
-- total usage seconds and observed foreground-resume count for that app/date;
-- usage seconds grouped into morning, afternoon, evening, and night.
+The app also stores the last successful collection time and your dashboard period, sort order, and brief-usage preferences. An onboarding preference exists in the source but is not written by the current UI. Android libraries maintain local operational state, such as scheduled background work.
 
-DataStore separately records whether onboarding has been seen and the time of the last successful aggregation. Stored daily history has no automatic expiration and can cover years while the application remains installed and its storage is retained.
+Usage history can reveal routines and interests. The database is not separately encrypted by Screen Consume; it relies on Android’s app sandbox and device storage protections. The app configuration disables automatic Android backup and excludes app data from cloud backup and device transfer.
 
-Android automatic backup is disabled. Local records are removed when the user clears Screen Consume's application storage or uninstalls it. Revoking Usage Access prevents future reads but does not erase existing aggregates.
+## Retention and deletion
 
-## Network behavior
+Recorded history has no automatic expiration. Android event retention and collection delays can leave gaps; installing the app cannot recover events Android no longer retains.
 
-The application does not declare Android's `INTERNET` permission and contains no implemented network client, analytics, telemetry, advertising, account, backend, or synchronization provider. The `SyncProvider` interface is only an unused extension point; no provider ships in the current application.
+- **Stop collection:** revoke Usage Access for Screen Consume in Android Settings. Existing summaries remain stored.
+- **Delete local data:** clear Screen Consume’s app storage in Android Settings, or uninstall it. There is currently no in-app selective deletion control.
+- **Delete exported copies:** remove them separately from the destination you chose, including any cloud copies or provider backups. Clearing app storage does not remove those files.
 
-No online integration is shown or enabled in the interface. The unused `SyncProvider` extension point does not connect to any service, request account access, authenticate, or upload data. Implementing a provider would require explicit user consent and a new privacy and security review.
+Deleting Screen Consume’s records does not delete the usage events retained independently by Android.
 
-Consequently, the reviewed application cannot directly send usage data to an Internet service. The first-run **No internet connection** badge refers specifically to this application behavior. It does not describe a cloud-backed document provider the user may deliberately choose in Android's system picker. This claim must be reassessed if a future build adds Internet permission or an integration.
+## Exports, backups, and restore
 
-## When data can leave the device
+Export and restore are initiated by you through Android’s document picker. CSV/JSON export writes your selected date range or all recorded history through today in plaintext. Encrypted `.scb` backups always cover all recorded history through today and protect it with AES-256-GCM using a password-derived key. The password is not saved persistently and cannot be recovered by the app. Backup encryption does not encrypt the app’s local database.
 
-Data can leave the app's private storage only through a user-initiated export or backup destination selected with Android's system document picker:
+The destination may be local storage, removable media, or a cloud-backed document provider. That provider may transmit or retain the file under its own practices. Screen Consume does not automatically upload it. Anyone with access to a plaintext export can read it.
 
-- CSV and JSON exports contain the selected range in plaintext.
-- Password-encrypted `.scb` backups contain all stored history.
-- A selected document provider may store locally, on removable media, or in a cloud service. Screen Consume does not control that provider after the user selects it.
+Restore reads the JSON or encrypted backup you select into the local database. Matching app/date records are updated; other stored records remain. CSV cannot be restored. Restore does not transmit the selected file to the developer. See [SECURITY.md](SECURITY.md#exports-and-restore-limits) for file limits and backup limitations.
 
-The application does not automatically upload these files. Once exported, copies are governed by the storage location, other applications with access to it, and the user's sharing choices. Plaintext exports should be handled as sensitive information.
+## Network access and external services
 
-Restore is also user initiated through the document picker. It imports compatible JSON or encrypted Screen Consume data into the local database; it does not upload the selected file.
+Screen Consume has no Android `INTERNET` permission, accounts, analytics, telemetry, advertising, or implemented online synchronization. The developer does not receive usage history through the app.
 
-## Encrypted backups
+**Open privacy policy** opens a fixed GitHub page in an external browser. No usage history is attached to the link. The browser and GitHub may process ordinary web-request information under their own practices. This is separate from the app’s no-network design, as are cloud-backed document providers you select for exports.
 
-Encrypted backups use AES-256-GCM and a password-derived key. The password is not saved and cannot be recovered by the application. A strong, unique password and a trusted storage destination are necessary. Encryption protects the backup file, not the unencrypted Room database inside the app's Android sandbox.
+If you submit a support issue on GitHub, the information you choose to submit is handled by GitHub and is normally public. Do not post usage exports, passwords, signing material, or other private information. For security concerns, follow [SECURITY.md](SECURITY.md#reporting-a-vulnerability).
 
-## Implications of Usage Access
+## Contact and changes
 
-Usage Access is powerful because application activity can reveal routines and interests. Android controls whether events are available and how long they are retained. Screen Consume aggregates available events locally, but event gaps, OEM behavior, delayed collection, or revoked access can make reports incomplete.
+For general privacy questions, use [GitHub Issues](https://github.com/cdmngz/screen-consume/issues) without including personal data. If a private discussion is needed, request a private contact channel first.
 
-Users can review or revoke Usage Access at any time in Android Settings. They should install only builds they trust and verify that a release retains the documented no-network and permission configuration.
-
-## Policy changes
-
-If Screen Consume's data practices change, this policy and its effective date will be updated before the changed version is released. Any future feature involving networking, accounts, analytics, advertising, or automatic data transmission requires a new privacy review and corresponding user disclosure.
+This policy will be updated when data practices change. New networking or data-sharing features require a separate privacy review and clear user disclosure before release. This document describes the repository’s implementation; modified builds and third-party services may behave differently.

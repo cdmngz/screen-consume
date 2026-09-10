@@ -19,24 +19,53 @@ object DataPortability {
     const val MAX_CATEGORY_LENGTH = 256
     private val magic = byteArrayOf('S'.code.toByte(), 'C'.code.toByte(), 'B'.code.toByte(), '1'.code.toByte())
 
-    fun toCsv(rows: List<PortableUsageRow>): ByteArray = buildString {
-        appendLine("date,packageName,displayName,category,usageSeconds,launchCount,morningUsageSeconds,afternoonUsageSeconds,eveningUsageSeconds,nightUsageSeconds")
-        rows.forEach { row ->
-            appendLine(listOf(row.date, row.packageName, row.displayName, row.category.orEmpty(), row.usageSeconds, row.launchCount, row.morningUsageSeconds, row.afternoonUsageSeconds, row.eveningUsageSeconds, row.nightUsageSeconds).joinToString(",") { csvCell(it.toString()) })
-        }
-    }.toByteArray()
+    private const val CSV_HEADER = "date,packageName,displayName,category,usageSeconds,launchCount,morningUsageSeconds,afternoonUsageSeconds,eveningUsageSeconds,nightUsageSeconds\n"
+
+    fun toCsv(rows: List<PortableUsageRow>): ByteArray {
+        val writer = java.io.StringWriter()
+        StreamWriter(writer, csv = true).apply { append(rows); finish() }
+        return writer.toString().toByteArray(Charsets.UTF_8)
+    }
+
+    private fun jsonRecord(row: PortableUsageRow) = JSONObject().apply {
+        put("date", row.date); put("packageName", row.packageName); put("displayName", row.displayName)
+        put("category", row.category ?: JSONObject.NULL); put("usageSeconds", row.usageSeconds); put("launchCount", row.launchCount)
+        put("morningUsageSeconds", row.morningUsageSeconds); put("afternoonUsageSeconds", row.afternoonUsageSeconds)
+        put("eveningUsageSeconds", row.eveningUsageSeconds); put("nightUsageSeconds", row.nightUsageSeconds)
+    }
 
     fun toJson(rows: List<PortableUsageRow>): ByteArray {
         val records = JSONArray()
-        rows.forEach { row ->
-            records.put(JSONObject().apply {
-                put("date", row.date); put("packageName", row.packageName); put("displayName", row.displayName)
-                put("category", row.category ?: JSONObject.NULL); put("usageSeconds", row.usageSeconds); put("launchCount", row.launchCount)
-                put("morningUsageSeconds", row.morningUsageSeconds); put("afternoonUsageSeconds", row.afternoonUsageSeconds)
-                put("eveningUsageSeconds", row.eveningUsageSeconds); put("nightUsageSeconds", row.nightUsageSeconds)
-            })
-        }
+        rows.forEach { records.put(jsonRecord(it)) }
         return JSONObject().put("format", "screen-consume-backup").put("version", VERSION).put("records", records).toString(2).toByteArray()
+    }
+
+    /** Writes batches without retaining earlier records. The caller owns the writer. */
+    class StreamWriter(private val writer: java.io.Writer, private val csv: Boolean) {
+        var count: Int = 0
+            private set
+        init {
+            if (csv) writer.write(CSV_HEADER)
+            else writer.write("{\"format\":\"screen-consume-backup\",\"version\":$VERSION,\"records\":[")
+        }
+        fun append(rows: List<PortableUsageRow>) {
+            rows.forEach { row ->
+                if (csv) {
+                    writer.write(listOf(row.date, row.packageName, row.displayName, row.category.orEmpty(), row.usageSeconds,
+                        row.launchCount, row.morningUsageSeconds, row.afternoonUsageSeconds, row.eveningUsageSeconds,
+                        row.nightUsageSeconds).joinToString(",") { csvCell(it.toString()) })
+                    writer.write("\n")
+                } else {
+                    if (count > 0) writer.write(",")
+                    writer.write(jsonRecord(row).toString())
+                }
+                count++
+            }
+        }
+        fun finish() {
+            if (!csv) writer.write("]}")
+            writer.flush()
+        }
     }
 
     fun fromJson(bytes: ByteArray): List<PortableUsageRow> {

@@ -9,7 +9,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -24,8 +25,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -71,10 +74,33 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle as DateTextStyle
 import java.util.concurrent.TimeUnit
 
-private enum class ExportScope(val labelRes: Int) { ALL(R.string.all_data), CUSTOM(R.string.custom_range) }
+// Shared layout values keep dashboard, detail, and settings visually aligned.
+private object UiSpacing {
+    val screen = 20.dp
+    val section = 16.dp
+    val card = 16.dp
+    val content = 12.dp
+    val axisGap = 8.dp
+    val plotHeight = 160.dp
+}
+
+internal object UiShapes {
+    val card = androidx.compose.foundation.shape.RoundedCornerShape(20.dp)
+    val field = androidx.compose.foundation.shape.RoundedCornerShape(22.dp)
+}
+
+@Composable
+private fun ScreenTitle(text: String, modifier: Modifier = Modifier) = Text(
+    text, modifier, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold,
+)
+
+@Composable
+private fun chartLabelStyle() = MaterialTheme.typography.labelSmall.copy(
+    color = MaterialTheme.colorScheme.onSurfaceVariant,
+)
+
 private enum class UiIcon { SETTINGS, EXPAND, COLLAPSE, BACK, FORWARD, PREVIOUS, NEXT }
 
 @Composable
@@ -118,6 +144,8 @@ fun ScreenConsumeApp(viewModel: MainViewModel, openUsageSettings: () -> Unit) {
                         viewModel::movePeriod,
                         viewModel::openApp,
                         openSettings = { showingSettings = true },
+                        setSortByName = viewModel::setSortByName,
+                        setIncludeBrief = viewModel::setIncludeBrief,
                     )
                 }
             }
@@ -161,15 +189,34 @@ private fun DashboardScreen(
     movePeriod: (Long) -> Unit,
     openApp: (AppUsage) -> Unit,
     openSettings: () -> Unit,
+    setSortByName: (Boolean) -> Unit,
+    setIncludeBrief: (Boolean) -> Unit,
 ) {
     var horizontalDrag by remember { mutableFloatStateOf(0f) }
-    val buckets = usageBuckets(state.preset, state.range, state.dailyApps)
+    var highlightedPackage by rememberSaveable { mutableStateOf<String?>(null) }
+    val buckets = usageBuckets(state.preset, state.range, state.dailyApps, highlightedPackage)
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val highlight: (String) -> Unit = { packageName ->
+        highlightedPackage = packageName.takeUnless { it == highlightedPackage }
+        scope.launch { listState.animateScrollToItem(3) }
+    }
     var selectedIndex by remember(state.preset, state.range, buckets) { mutableIntStateOf(-1) }
     var chartBounds by remember { mutableStateOf(Rect.Zero) }
     var dashboardOrigin by remember { mutableStateOf(Offset.Zero) }
-    val usedApps = remember(state.stats.apps) { state.stats.apps.filter { it.usageSeconds >= 60 } }
+    var query by rememberSaveable { mutableStateOf("") }
+    val sortByName = state.sortByName
+    val includeBrief = state.includeBrief
+    val usedApps = remember(state.stats.apps, query, sortByName, includeBrief) {
+        state.stats.apps.filter {
+            it.usageSeconds >= (if (includeBrief) 1 else 60) && it.displayName.contains(query.trim(), ignoreCase = true)
+        }.let { apps ->
+            if (sortByName) apps.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.displayName })
+            else apps.sortedByDescending { it.usageSeconds }
+        }
+    }
     LazyColumn(
-        Modifier.fillMaxSize()
+        Modifier.fillMaxSize().imePadding()
             .onGloballyPositioned { dashboardOrigin = it.positionInRoot() }
             .pointerInput(state.preset, state.range, buckets) {
                 // Observe without consuming: buttons and scroll gestures still handle their input.
@@ -199,47 +246,54 @@ private fun DashboardScreen(
                 },
             )
         },
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        state = listState,
+        contentPadding = PaddingValues(UiSpacing.screen),
+        verticalArrangement = Arrangement.spacedBy(UiSpacing.section),
     ) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.app_name), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                ScreenTitle(stringResource(R.string.app_name), Modifier.weight(1f))
                 UiIconButton(UiIcon.SETTINGS, stringResource(R.string.open_settings), openSettings)
             }
         }
         item { UsageSummaryCard(state.headlineStats, state.loading) }
+        item { CollectionStatus(state) }
         item {
-            ElevatedCard(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    PeriodButtons(state.preset, select)
+            ElevatedCard(Modifier.fillMaxWidth(), shape = UiShapes.card) {
+                Column(Modifier.padding(UiSpacing.card), verticalArrangement = Arrangement.spacedBy(UiSpacing.content)) {
+                    highlightedPackage?.let { packageName ->
+                        val app = state.stats.apps.firstOrNull { it.packageName == packageName }
+                            ?: AppUsage(packageName, packageName, null, 0, 0)
+                        HighlightedAppLabel(app, clear = { highlightedPackage = null }, openApp = openApp)
+                    }
+
                     AnimatedContent(
                         targetState = state,
                         contentKey = { Triple(it.preset, it.range, it.loading) },
                         transitionSpec = { fadeIn(tween(220, delayMillis = 90)) togetherWith fadeOut(tween(90)) },
                         label = "Usage period",
                     ) { chartState ->
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text(formatRange(chartState.range), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Column(verticalArrangement = Arrangement.spacedBy(UiSpacing.content)) {
+                            PeriodNavigation(chartState.preset, chartState.range, select, movePeriod)
                             if (chartState.loading) {
                                 Box(Modifier.fillMaxWidth().height(200.dp), contentAlignment = Alignment.Center) {
                                     CircularProgressIndicator(Modifier.size(28.dp))
                                 }
                             } else {
-                                val chartBuckets = usageBuckets(chartState.preset, chartState.range, chartState.dailyApps)
-                                val rankedApps = chartState.stats.apps.filter { it.usageSeconds > 0 }.sortedByDescending { it.usageSeconds }
-                                val otherSeconds = rankedApps.drop(3).sumOf { it.usageSeconds }
+                                PeriodComparison(chartState)
+                                val chartBuckets = usageBuckets(chartState.preset, chartState.range, chartState.dailyApps, highlightedPackage)
                                 val fullBucket = UsageBucket(
-                                    stringResource(if (chartState.preset == RangePreset.TODAY) R.string.full_day else R.string.full_period),
-                                    rankedApps.take(3).map { ChartSegment(it.displayName, it.usageSeconds) } +
-                                        listOfNotNull(ChartSegment(stringResource(R.string.other_apps), otherSeconds).takeIf { otherSeconds > 0 }),
+                                    formatRange(chartState.range),
+                                    rankedSegments(chartState.dailyApps.map { it to it.usageSeconds }, stringResource(R.string.other_apps), highlightedPackage),
                                 )
                                 StackedUsageChart(
                                     chartBuckets,
+                                    highlightedPackage = highlightedPackage,
+                                    selectedIndex = selectedIndex,
                                     onSelect = { selectedIndex = if (selectedIndex == it) -1 else it },
                                     modifier = Modifier.onGloballyPositioned { chartBounds = it.boundsInRoot() },
                                 )
-                                UsageShareContent(chartBuckets.getOrNull(selectedIndex) ?: fullBucket)
+                                UsageShareContent(chartBuckets.getOrNull(selectedIndex) ?: fullBucket, highlightedPackage, highlight)
                             }
                         }
                     }
@@ -247,19 +301,57 @@ private fun DashboardScreen(
             }
         }
         item {
-            Column(Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.most_used_apps), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                Text(
-                    pluralStringResource(R.plurals.showing_all_apps, usedApps.size, usedApps.size),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AppSearchField(query, onQueryChange = { query = it })
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(!sortByName, { setSortByName(false) }, label = { Text(stringResource(R.string.sort_usage)) }, trailingIcon = { Icon(painterResource(R.drawable.ic_sort), null, Modifier.size(16.dp)) })
+                    FilterChip(sortByName, { setSortByName(true) }, label = { Text(stringResource(R.string.sort_name)) }, trailingIcon = { Icon(painterResource(R.drawable.ic_sort), null, Modifier.size(16.dp)) })
+                    FilterChip(includeBrief, { setIncludeBrief(!includeBrief) }, label = { Text(stringResource(R.string.all_apps)) })
+                }
             }
         }
-        if (usedApps.isEmpty()) item { Text(stringResource(R.string.no_usage_period), color = MaterialTheme.colorScheme.onSurfaceVariant) }
-        items(usedApps, key = { it.packageName }) { AppRow(it, openApp) }
+        if (usedApps.isEmpty() && !state.loading) item {
+            Text(stringResource(if (state.refreshFailed || state.lastSuccessfulAggregationMillis == null) R.string.data_unavailable else if (state.stats.apps.isEmpty()) R.string.no_usage_period else R.string.no_matching_apps), color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        items(usedApps, key = { it.packageName }) { app ->
+            AppRow(app, openApp, app.packageName == highlightedPackage) { highlight(app.packageName) }
+        }
     }
 
+}
+
+@Composable
+private fun CollectionStatus(state: MainUiState) {
+    val lastRun = state.lastSuccessfulAggregationMillis
+    val stale = lastRun == null || System.currentTimeMillis() - lastRun > TimeUnit.HOURS.toMillis(1)
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        if (stale || state.refreshFailed || state.refreshing || state.stats.totalSeconds == 0L) {
+            Text(stringResource(when {
+                state.refreshing -> R.string.refreshing_usage
+                state.refreshFailed -> R.string.refresh_failed
+                lastRun == null -> R.string.data_unavailable
+                stale -> R.string.data_delayed
+                else -> R.string.no_usage_period
+            }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
+        }
+    }
+}
+
+@Composable
+private fun PeriodComparison(state: MainUiState) {
+    Text(stringResource(R.string.period_total, duration(state.stats.totalSeconds)), style = MaterialTheme.typography.titleMedium)
+    val prior = state.stats.previousTotalSeconds
+    if (prior > 0) {
+        val difference = state.stats.totalSeconds - prior
+        Text(stringResource(when {
+            difference > 0 -> R.string.usage_more
+            difference < 0 -> R.string.usage_less
+            else -> R.string.usage_same
+        }, duration(kotlin.math.abs(difference)), formatRange(state.range.previous())), style = MaterialTheme.typography.bodySmall)
+    }
+    if (prior > 0 && LocalDate.now() in state.range.start..state.range.endInclusive) {
+        Text(stringResource(R.string.partial_day_comparison), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
 }
 
 @Composable
@@ -313,6 +405,22 @@ private fun UiIconGraphic(icon: UiIcon, modifier: Modifier = Modifier) {
 }
 
 @Composable
+private fun PeriodNavigation(selected: RangePreset, range: DateRange, select: (RangePreset) -> Unit, move: (Long) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        PeriodButtons(selected, select)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            UiIconButton(UiIcon.PREVIOUS, stringResource(R.string.previous_period), { move(1) })
+            Text(formatRange(range), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            UiIconButton(UiIcon.NEXT, stringResource(R.string.next_period), { move(-1) }, enabled = range.endInclusive.isBefore(LocalDate.now()))
+        }
+        if (range.endInclusive.isBefore(LocalDate.now())) {
+            TextButton(onClick = { select(RangePreset.TODAY) }) { Text(stringResource(R.string.back_to_today)) }
+        }
+    }
+}
+
+@Composable
 private fun PeriodButtons(selected: RangePreset, select: (RangePreset) -> Unit) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
@@ -330,8 +438,8 @@ private fun PeriodButtons(selected: RangePreset, select: (RangePreset) -> Unit) 
 
 @Composable
 private fun UsageSummaryCard(stats: HeadlineStats, loading: Boolean) {
-    ElevatedCard(Modifier.fillMaxWidth()) {
-        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(18.dp), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+    ElevatedCard(Modifier.fillMaxWidth(), shape = UiShapes.card) {
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(UiSpacing.card), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 MetricLabel(stringResource(R.string.total_day_time))
                 MetricValue(if (loading) "—" else duration(stats.todaySeconds))
@@ -351,44 +459,43 @@ private fun MetricLabel(text: String) = Text(text, style = MaterialTheme.typogra
 @Composable
 private fun MetricValue(text: String) = Text(text, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
 
-private data class ChartSegment(val name: String, val seconds: Long)
-private data class UsageBucket(val label: String, val segments: List<ChartSegment>) {
-    val total: Long = segments.sumOf { it.seconds }
-}
-
 @Composable
-private fun usageBuckets(preset: RangePreset, range: DateRange, rows: List<DailyAppUsage>): List<UsageBucket> {
+private fun usageBuckets(preset: RangePreset, range: DateRange, rows: List<DailyAppUsage>, highlighted: String?): List<UsageBucket> {
     val locale = LocalConfiguration.current.locales[0]
     val otherApps = stringResource(R.string.other_apps)
-    fun ranked(label: String, values: List<Pair<String, Long>>): UsageBucket {
-        val ranked = values.groupBy({ it.first }, { it.second }).map { (name, times) -> ChartSegment(name, times.sum()) }
-            .filter { it.seconds > 0 }.sortedByDescending { it.seconds }
-        val top = ranked.take(3)
-        val other = ranked.drop(3).sumOf { it.seconds }
-        return UsageBucket(label, top + listOfNotNull(ChartSegment(otherApps, other).takeIf { other > 0 }))
-    }
+    fun ranked(label: String, values: List<Pair<DailyAppUsage, Long>>, description: String = label) =
+        UsageBucket(label, rankedSegments(values, otherApps, highlighted), description)
     return when (preset) {
         RangePreset.TODAY -> listOf(
-            stringResource(R.string.morning) to { row: DailyAppUsage -> row.morningUsageSeconds },
-            stringResource(R.string.afternoon) to { row: DailyAppUsage -> row.afternoonUsageSeconds },
-            stringResource(R.string.evening) to { row: DailyAppUsage -> row.eveningUsageSeconds },
-            stringResource(R.string.night) to { row: DailyAppUsage -> row.nightUsageSeconds },
-        ).map { (label, value) -> ranked(label, rows.map { it.displayName to value(it) }) }
+            (stringResource(R.string.morning) to "6–12") to { row: DailyAppUsage -> row.morningUsageSeconds },
+            (stringResource(R.string.afternoon) to "12–18") to { row: DailyAppUsage -> row.afternoonUsageSeconds },
+            (stringResource(R.string.evening) to "18–22") to { row: DailyAppUsage -> row.eveningUsageSeconds },
+            (stringResource(R.string.night) to "22–6") to { row: DailyAppUsage -> row.nightUsageSeconds },
+        ).map { (label, value) -> ranked("${label.first}\n${label.second}", rows.map { it to value(it) }, "${formatRange(range)} · ${label.first}") }
         RangePreset.WEEK -> generateSequence(range.start) { it.plusDays(1) }.takeWhile { !it.isAfter(range.endInclusive) }.map { date ->
-            ranked(date.format(DateTimeFormatter.ofPattern("EEEEE", locale)), rows.filter { it.date == date }.map { it.displayName to it.usageSeconds })
+            ranked(date.format(DateTimeFormatter.ofPattern("EEEEE", locale)), rows.filter { it.date == date }.map { it to it.usageSeconds },
+                date.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy", locale)))
         }.toList()
         RangePreset.MONTH -> monthWeekRanges(range.start).mapIndexed { week, weekRange ->
-            ranked(stringResource(R.string.week_number, week + 1), rows.filter { !it.date.isBefore(weekRange.start) && !it.date.isAfter(weekRange.endInclusive) }.map { it.displayName to it.usageSeconds })
+            ranked(stringResource(R.string.week_number, week + 1), rows.filter { !it.date.isBefore(weekRange.start) && !it.date.isAfter(weekRange.endInclusive) }.map { it to it.usageSeconds }, formatRange(weekRange))
         }
-        RangePreset.YEAR -> (1..range.endInclusive.monthValue).map { month ->
-            ranked(java.time.Month.of(month).getDisplayName(java.time.format.TextStyle.NARROW, locale), rows.filter { it.date.monthValue == month }.map { it.displayName to it.usageSeconds })
+        RangePreset.YEAR -> (1..12).map { month ->
+            val date = range.start.withMonth(month)
+            ranked(date.format(DateTimeFormatter.ofPattern("MMM", locale)), rows.filter { it.date.monthValue == month }.map { it to it.usageSeconds },
+                date.format(DateTimeFormatter.ofPattern("MMMM yyyy", locale)))
         }
     }
 }
+
+private fun segmentColor(segment: ChartSegment, index: Int, colors: List<Color>, highlighted: String?): Color =
+    if (highlighted == null) colors[index % colors.size]
+    else if (segment.packageName == highlighted) colors.first() else colors[index % colors.size].copy(alpha = .2f)
 
 @Composable
 private fun StackedUsageChart(
     buckets: List<UsageBucket>,
+    highlightedPackage: String?,
+    selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -396,48 +503,66 @@ private fun StackedUsageChart(
     val peak = buckets.maxOfOrNull { it.total } ?: 0L
     val tickSeconds = usageAxisStepSeconds(peak, 4)
     val maximum = tickSeconds * 4L
-    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val gridColor = MaterialTheme.colorScheme.outlineVariant
     val textMeasurer = rememberTextMeasurer()
-    val labels = (0..4).map { tick ->
-        textMeasurer.measure(usageAxisLabel(tickSeconds * tick), TextStyle(fontSize = 10.sp, color = labelColor))
+    val axisStyle = chartLabelStyle()
+    val labels = (1..4).map { tick ->
+        textMeasurer.measure(usageAxisLabel(tickSeconds * tick), axisStyle)
     }
     val axisWidth = with(androidx.compose.ui.platform.LocalDensity.current) {
-        labels.maxOf { it.size.width }.toDp() + 8.dp
+        labels.maxOf { it.size.width }.toDp() + UiSpacing.axisGap
     }
-    Row(modifier.fillMaxWidth().padding(top = 8.dp)) {
-        Canvas(Modifier.width(axisWidth).height(160.dp)) {
-            labels.forEachIndexed { tick, label ->
-                val y = size.height * (1f - tick / 4f)
-                drawText(label, topLeft = Offset(size.width - label.size.width - 8.dp.toPx(), y - label.size.height / 2f))
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val topInset = with(density) { labels.maxOf { it.size.height }.toDp() / 2 }
+    val slotWidth = with(density) {
+        (buckets.maxOfOrNull { textMeasurer.measure(it.label, axisStyle).size.width } ?: 0).toDp() + UiSpacing.axisGap * 2
+    }
+    Row(modifier.fillMaxWidth().padding(top = topInset)) {
+        Canvas(Modifier.width(axisWidth).height(UiSpacing.plotHeight)) {
+            labels.forEachIndexed { index, label ->
+                val y = size.height * (1f - (index + 1) / 4f)
+                drawText(label, topLeft = Offset(size.width - label.size.width - UiSpacing.axisGap.toPx(), y - label.size.height / 2f))
             }
         }
-        Box(Modifier.weight(1f)) {
-            Canvas(Modifier.fillMaxWidth().height(160.dp)) {
-                (0..4).forEach { tick ->
-                    val y = size.height * tick / 4f
-                    drawLine(gridColor, Offset(0f, y), Offset(size.width, y), 1.dp.toPx())
-                }
-                drawLine(gridColor, Offset.Zero, Offset(0f, size.height), 1.dp.toPx())
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                buckets.forEachIndexed { index, bucket ->
-                    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(
-                            Modifier.fillMaxWidth().height(160.dp).clickable { onSelect(index) },
-                            contentAlignment = Alignment.BottomCenter,
-                        ) {
-                            if (bucket.total > 0) Column(
-                                Modifier.fillMaxWidth(.72f)
-                                    .fillMaxHeight((bucket.total.toFloat() / maximum).coerceIn(0f, 1f)),
-                                verticalArrangement = Arrangement.Bottom,
-                            ) {
-                                bucket.segments.forEachIndexed { segmentIndex, segment ->
-                                    Box(Modifier.fillMaxWidth().weight(segment.seconds.toFloat().coerceAtLeast(1f)).background(colors[segmentIndex]))
+        BoxWithConstraints(Modifier.weight(1f)) {
+            val plotWidth = maxOf(maxWidth, slotWidth * buckets.size)
+            Box(Modifier.horizontalScroll(rememberScrollState())) {
+                Box(Modifier.width(plotWidth)) {
+                    Canvas(Modifier.fillMaxWidth().height(UiSpacing.plotHeight)) {
+                        (0..4).forEach { tick ->
+                            val y = size.height * tick / 4f
+                            drawLine(gridColor, Offset(0f, y), Offset(size.width, y), 1.dp.toPx())
+                        }
+                        drawLine(gridColor, Offset.Zero, Offset(0f, size.height), 1.dp.toPx())
+                    }
+                    Row(Modifier.fillMaxWidth()) {
+                        buckets.forEachIndexed { index, bucket ->
+                            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Box(
+                                    Modifier.fillMaxWidth().height(UiSpacing.plotHeight)
+                                        .selectable(selected = selectedIndex == index, onClick = { onSelect(index) })
+                                        .semantics { contentDescription = "${bucket.description} · ${duration(bucket.total)}" },
+                                    contentAlignment = Alignment.BottomCenter,
+                                ) {
+                                    if (bucket.total > 0) Column(
+                                        Modifier.fillMaxWidth(.72f)
+                                            .fillMaxHeight((bucket.total.toFloat() / maximum).coerceIn(0f, 1f)),
+                                        verticalArrangement = Arrangement.Bottom,
+                                    ) {
+                                        bucket.segments.forEachIndexed { segmentIndex, segment ->
+                                            Box(Modifier.fillMaxWidth().weight(segment.seconds.toFloat().coerceAtLeast(1f)).background(segmentColor(segment, segmentIndex, colors, highlightedPackage)))
+                                        }
+                                    }
                                 }
+                                Text(
+                                    bucket.label,
+                                    Modifier.padding(top = 8.dp).heightIn(min = 40.dp),
+                                    style = axisStyle,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                                    maxLines = 2,
+                                )
                             }
                         }
-                        Text(bucket.label, Modifier.padding(top = 8.dp).heightIn(min = 22.dp), style = MaterialTheme.typography.labelSmall, maxLines = 1)
                     }
                 }
             }
@@ -446,7 +571,7 @@ private fun StackedUsageChart(
 }
 
 @Composable
-private fun UsageDonutChart(bucket: UsageBucket, modifier: Modifier = Modifier) {
+private fun UsageDonutChart(bucket: UsageBucket, highlightedPackage: String?, modifier: Modifier = Modifier) {
     val colors = chartColors()
     val description = stringResource(R.string.usage_share)
     Canvas(modifier.semantics { contentDescription = description }) {
@@ -456,32 +581,36 @@ private fun UsageDonutChart(bucket: UsageBucket, modifier: Modifier = Modifier) 
         var start = -90f
         bucket.segments.forEachIndexed { index, segment ->
             val sweep = segment.seconds.toFloat() / bucket.total.coerceAtLeast(1) * 360f
-            drawArc(colors[index], start, sweep, false, topLeft = Offset(left, topOffset), size = androidx.compose.ui.geometry.Size(diameter, diameter), style = Stroke(diameter * .2f, cap = StrokeCap.Butt))
+            drawArc(segmentColor(segment, index, colors, highlightedPackage), start, sweep, false, topLeft = Offset(left, topOffset), size = androidx.compose.ui.geometry.Size(diameter, diameter), style = Stroke(diameter * .2f, cap = StrokeCap.Butt))
             start += sweep
         }
     }
 }
 
 @Composable
-private fun UsageShareContent(bucket: UsageBucket) {
+private fun UsageShareContent(bucket: UsageBucket, highlightedPackage: String?, highlight: (String) -> Unit) {
     val colors = chartColors()
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(stringResource(R.string.usage_share), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text("${bucket.label} · ${duration(bucket.total)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        SectionTitle(stringResource(R.string.chart_selection))
+        Text("${bucket.description} · ${duration(bucket.total)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         if (bucket.total == 0L) {
             Text(stringResource(R.string.no_usage_period), style = MaterialTheme.typography.bodySmall)
         } else {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                UsageDonutChart(bucket, Modifier.size(96.dp))
+                UsageDonutChart(bucket, highlightedPackage, Modifier.size(96.dp))
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     bucket.segments.forEachIndexed { index, segment ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(9.dp).background(colors[index % colors.size], MaterialTheme.shapes.small))
+                        Row(Modifier.selectable(selected = segment.packageName != null && segment.packageName == highlightedPackage,
+                            enabled = segment.packageName != null, onClick = { segment.packageName?.let(highlight) }), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(9.dp).background(segmentColor(segment, index, colors, highlightedPackage), MaterialTheme.shapes.small))
                             Spacer(Modifier.width(7.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(segment.name, style = MaterialTheme.typography.bodySmall, maxLines = 1)
-                                Text("${segment.seconds * 100 / bucket.total}% · ${duration(segment.seconds)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                val percent = segment.seconds * 100 / bucket.total
+                                val share = if (percent == 0L && segment.seconds > 0L) "<1%" else "$percent%"
+                                val time = if (segment.seconds in 1..59) stringResource(R.string.less_than_minute) else duration(segment.seconds)
+                                Text("$share · $time", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
@@ -498,24 +627,41 @@ private fun chartColors(): List<Color> = if (isSystemInDarkTheme()) {
     listOf(Color(0xFF176B5B), Color(0xFF4783B5), Color(0xFFD07700), Color(0xFF89938F))
 }
 
-@Composable private fun MetricCard(label: String, value: String, modifier: Modifier) = ElevatedCard(modifier) {
-    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+@Composable private fun MetricCard(label: String, value: String, modifier: Modifier) = Card(modifier, shape = UiShapes.card, elevation = CardDefaults.cardElevation(0.dp)) {
+    Column(Modifier.padding(UiSpacing.card), verticalArrangement = Arrangement.spacedBy(3.dp)) {
         MetricLabel(label)
         Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
     }
 }
 
 @Composable
-private fun AppRow(app: AppUsage, openApp: (AppUsage) -> Unit) {
+private fun HighlightedAppLabel(app: AppUsage, clear: () -> Unit, openApp: (AppUsage) -> Unit) {
+    val installed = installedApp(app.packageName)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+        installed?.icon?.let { icon ->
+            Image(BitmapPainter(icon), contentDescription = null, modifier = Modifier.size(32.dp))
+        }
+        Text(installed?.label?.takeIf(String::isNotBlank) ?: app.displayName,
+            style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f),
+            maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+        TextButton(onClick = clear) { Text(stringResource(R.string.clear_highlight)) }
+        TextButton(onClick = { openApp(app) }) { Text(stringResource(R.string.app_details)) }
+    }
+}
+
+@Composable
+private fun AppRow(app: AppUsage, openApp: (AppUsage) -> Unit, highlighted: Boolean, highlight: () -> Unit) {
     val installedApp = installedApp(app.packageName)
     val displayName = installedApp?.label?.takeIf(String::isNotBlank) ?: app.displayName
     ListItem(
-        modifier = Modifier.clickable { openApp(app) },
+        modifier = Modifier.clip(UiShapes.card).selectable(selected = highlighted, onClick = highlight),
+        colors = ListItemDefaults.colors(containerColor = if (highlighted) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface),
+        trailingContent = { TextButton(onClick = { openApp(app) }) { Text(stringResource(R.string.app_details)) } },
         leadingContent = installedApp?.icon?.let { icon ->
             { Image(BitmapPainter(icon), contentDescription = null, modifier = Modifier.size(40.dp)) }
         },
         headlineContent = { Text(displayName, fontWeight = FontWeight.Medium) },
-        supportingContent = { Text(duration(app.usageSeconds)) },
+        supportingContent = { Text(if (app.usageSeconds in 1..59) stringResource(R.string.less_than_minute) else duration(app.usageSeconds)) },
     )
 }
 
@@ -557,54 +703,34 @@ private fun AppDetailScreen(
     val collectionMayBeIncomplete = lastAggregationDate == null || lastAggregationDate.isBefore(minOf(detail.range.endInclusive, LocalDate.now()))
     LazyColumn(
         Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
+        contentPadding = PaddingValues(UiSpacing.screen),
+        verticalArrangement = Arrangement.spacedBy(UiSpacing.section),
     ) {
         item {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(UiSpacing.content)) {
                 UiIconButton(UiIcon.BACK, stringResource(R.string.back_to_dashboard), onBack)
                 installedApp?.icon?.let { Image(BitmapPainter(it), contentDescription = null, modifier = Modifier.size(40.dp)) }
-                Text(name, modifier = Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                ScreenTitle(name, Modifier.weight(1f))
             }
         }
         item {
-            Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                var expanded by remember { mutableStateOf(false) }
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-                    UiIconButton(UiIcon.PREVIOUS, stringResource(R.string.previous_period), { movePeriod(1) }, iconSize = 18.dp)
-                    Box {
-                        OutlinedButton(onClick = { expanded = true }) {
-                            Text(stringResource(detail.preset.labelRes))
-                            UiIconGraphic(UiIcon.EXPAND, Modifier.padding(start = 8.dp).size(18.dp))
-                        }
-                        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                            AppHistoryPreset.entries.forEach { preset ->
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(preset.labelRes)) },
-                                    onClick = { expanded = false; select(preset) },
-                                    trailingIcon = { if (preset == detail.preset) Text("✓") },
-                                )
-                            }
-                        }
-                    }
-                    UiIconButton(UiIcon.NEXT, stringResource(R.string.next_period), { movePeriod(-1) }, enabled = detail.canMoveToNewerPeriod, iconSize = 18.dp)
-                }
-                Text(formatRange(detail.range), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            PeriodNavigation(RangePreset.valueOf(detail.preset.name), detail.range,
+                { select(AppHistoryPreset.valueOf(it.name)) }, movePeriod)
         }
+
         item {
-            ElevatedCard(Modifier.fillMaxWidth()) {
-                UsageLineChart(detail, Modifier.fillMaxWidth().height(290.dp).padding(14.dp))
+            Card(Modifier.fillMaxWidth(), shape = UiShapes.card, elevation = CardDefaults.cardElevation(0.dp)) {
+                UsageLineChart(detail, Modifier.fillMaxWidth().padding(UiSpacing.card))
             }
         }
         if (total == 0L) item { Text(stringResource(R.string.no_app_usage_period)) }
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(UiSpacing.content)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(UiSpacing.content)) {
                     MetricCard(stringResource(R.string.total_all_time), duration(detail.calendarDays.sumOf { it.usageSeconds }), Modifier.weight(1f))
                     MetricCard(stringResource(R.string.total_in_period, stringResource(detail.preset.labelRes)), duration(total), Modifier.weight(1f))
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(UiSpacing.content)) {
                     MetricCard(
                         stringResource(R.string.most_used_day),
                         peakDay?.let { "${it.date.format(DateTimeFormatter.ofPattern("d MMM yyyy", locale))} · ${duration(it.usageSeconds)}" } ?: "—",
@@ -616,27 +742,20 @@ private fun AppDetailScreen(
         }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                DetailSectionTitle(stringResource(R.string.calendar))
+                SectionTitle(stringResource(R.string.calendar))
                 UsageCalendar(detail.calendarDays)
                 if (collectionMayBeIncomplete) Text(stringResource(R.string.collection_may_be_incomplete), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
             }
         }
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                DetailSectionTitle(stringResource(R.string.top_consecutive_days))
+                SectionTitle(stringResource(R.string.top_consecutive_days))
                 ConsecutiveUsageDays(detail.days)
             }
         }
 
     }
 }
-
-@Composable
-private fun DetailSectionTitle(text: String) = Text(
-    text,
-    style = MaterialTheme.typography.titleMedium,
-    fontWeight = FontWeight.SemiBold,
-)
 
 @Composable
 private fun UsageCalendar(days: List<DayUsage>) {
@@ -661,8 +780,8 @@ private fun UsageCalendar(days: List<DayUsage>) {
         val target = selected?.date?.plusDays(offset) ?: return false
         return data.cells.firstOrNull { it.date == target }?.let { selected = it; true } ?: false
     }
-    ElevatedCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Card(Modifier.fillMaxWidth(), shape = UiShapes.card, elevation = CardDefaults.cardElevation(0.dp)) {
+        Column(Modifier.padding(UiSpacing.card), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             BoxWithConstraints(Modifier.fillMaxWidth()) {
                 val columnWidth = (maxWidth / 14).coerceAtLeast(28.dp)
                 LazyRow(
@@ -737,8 +856,8 @@ private fun ConsecutiveUsageDays(days: List<DayUsage>) {
         Text(stringResource(R.string.no_streaks), color = MaterialTheme.colorScheme.onSurfaceVariant)
         return
     }
-    ElevatedCard(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Card(Modifier.fillMaxWidth(), shape = UiShapes.card, elevation = CardDefaults.cardElevation(0.dp)) {
+        Column(Modifier.padding(UiSpacing.card), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             streaks.take(5).forEach { streak ->
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -765,15 +884,27 @@ private fun UsageLineChart(detail: AppDetailUiState, modifier: Modifier = Modifi
     val gridColor = MaterialTheme.colorScheme.outlineVariant
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val textMeasurer = rememberTextMeasurer()
+    val axisStyle = chartLabelStyle()
     val locale = LocalConfiguration.current.locales[0]
     val points = detailChartPoints(detail.preset, detail.range, detail.days, detail.hourlySeconds, java.time.LocalDateTime.now())
     val maximum = usageAxisStepSeconds(points.maxOfOrNull { it.seconds ?: 0L } ?: 0L, 3) * 3
     val axisLabels = yAxisLabelValues(maximum).map { value ->
-        textMeasurer.measure(usageAxisLabel(requireNotNull(value)), TextStyle(fontSize = 10.sp, color = labelColor))
+        textMeasurer.measure(usageAxisLabel(requireNotNull(value)), axisStyle)
     }
     val density = androidx.compose.ui.platform.LocalDensity.current
-    val axisGap = with(density) { 8.dp.toPx() }
+    val axisGap = with(density) { UiSpacing.axisGap.toPx() }
     val axisWidth = axisLabels.maxOf { it.size.width } + axisGap
+    val xLabels = points.map { point ->
+        when (detail.preset) {
+            AppHistoryPreset.TODAY -> point.hour.toString().padStart(2, '0')
+            AppHistoryPreset.WEEK -> point.date.format(DateTimeFormatter.ofPattern("EEEEE", locale))
+            AppHistoryPreset.MONTH -> point.date.dayOfMonth.toString()
+            AppHistoryPreset.YEAR -> point.date.format(DateTimeFormatter.ofPattern("MMM", locale))
+        }.let { textMeasurer.measure(it, axisStyle) }
+    }
+    val topInset = axisLabels.maxOf { it.size.height } / 2f
+    val bottomInset = xLabels.maxOf { it.size.height } + axisGap * 2
+    val minimumSlot = with(density) { (xLabels.maxOf { it.size.width } + axisGap * 2).toDp() }
     var selectedIndex by remember(detail.preset, detail.range, points) {
         mutableIntStateOf(points.indexOfLast { (it.seconds ?: 0L) > 0 }.takeIf { it >= 0 }
             ?: points.indexOfLast { it.seconds != null }.coerceAtLeast(0))
@@ -801,10 +932,10 @@ private fun UsageLineChart(detail: AppDetailUiState, modifier: Modifier = Modifi
         return true
     }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Row(Modifier.fillMaxWidth().weight(1f)) {
+        Row(Modifier.fillMaxWidth().height(200.dp)) {
             Canvas(Modifier.width(with(density) { axisWidth.toDp() }).fillMaxHeight()) {
-                val top = 8.dp.toPx()
-                val bottom = size.height - 28.dp.toPx()
+                val top = topInset
+                val bottom = size.height - bottomInset
                 axisLabels.forEachIndexed { index, label ->
                     val y = top + (bottom - top) * index / 3f
                     drawText(label, topLeft = Offset(size.width - axisGap - label.size.width, (y - label.size.height / 2f).coerceAtLeast(0f)))
@@ -812,9 +943,15 @@ private fun UsageLineChart(detail: AppDetailUiState, modifier: Modifier = Modifi
             }
             BoxWithConstraints(Modifier.weight(1f).fillMaxHeight()) {
                 // Every hour/day/month keeps a readable label; the Y axis stays fixed when scrolling.
-                val plotWidth = maxOf(maxWidth, (points.size * 28).dp)
+                val plotWidth = maxOf(maxWidth, minimumSlot * points.size)
                 key(detail.preset, detail.range) {
-                    Box(Modifier.fillMaxSize().horizontalScroll(rememberScrollState())) {
+                    val chartScroll = rememberScrollState()
+                    val slotPixels = with(density) { plotWidth.toPx() } / points.size.coerceAtLeast(1)
+                    val viewportPixels = with(density) { maxWidth.toPx() }
+                    LaunchedEffect(selectedIndex, slotPixels, viewportPixels) {
+                        chartScroll.scrollTo(((selectedIndex + .5f) * slotPixels - viewportPixels / 2).toInt().coerceAtLeast(0))
+                    }
+                    Box(Modifier.fillMaxSize().horizontalScroll(chartScroll)) {
                         Canvas(
                             Modifier.width(plotWidth).fillMaxHeight().semantics {
                                 contentDescription = description
@@ -831,8 +968,8 @@ private fun UsageLineChart(detail: AppDetailUiState, modifier: Modifier = Modifi
                                 }
                             },
                         ) {
-                            val top = 8.dp.toPx()
-                            val bottom = size.height - 28.dp.toPx()
+                            val top = topInset
+                            val bottom = size.height - bottomInset
                             val height = (bottom - top).coerceAtLeast(1f)
                             repeat(4) { index ->
                                 val y = top + height * index / 3f
@@ -851,30 +988,28 @@ private fun UsageLineChart(detail: AppDetailUiState, modifier: Modifier = Modifi
                                 drawLine(labelColor.copy(alpha = .5f), Offset(position.x, top), Offset(position.x, bottom), 1.dp.toPx())
                                 drawCircle(lineColor, 4.dp.toPx(), position)
                             }
-                            points.forEachIndexed { index, point ->
+                            points.forEachIndexed { index, _ ->
                                 val x = slot * (index + .5f)
                                 drawLine(gridColor, Offset(x, bottom), Offset(x, bottom + 3.dp.toPx()), 1.dp.toPx())
-                                val label = when (detail.preset) {
-                                    AppHistoryPreset.TODAY -> point.hour.toString().padStart(2, '0')
-                                    AppHistoryPreset.WEEK -> point.date.format(DateTimeFormatter.ofPattern("EEEEE", locale))
-                                    AppHistoryPreset.MONTH -> point.date.dayOfMonth.toString()
-                                    AppHistoryPreset.YEAR -> point.date.format(DateTimeFormatter.ofPattern("MMM", locale))
-                                }
-                                val measured = textMeasurer.measure(label, TextStyle(fontSize = 10.sp, color = labelColor))
-                                drawText(measured, topLeft = Offset(x - measured.size.width / 2f, bottom + 6.dp.toPx()))
+                                val measured = xLabels[index]
+                                drawText(measured, topLeft = Offset(x - measured.size.width / 2f, bottom + axisGap))
                             }
                         }
                     }
                 }
             }
         }
-        Text(
-            if (detail.preset == AppHistoryPreset.TODAY && detail.hourlySeconds == null) {
-                if (detail.days.any { it.usageSeconds > 0 }) unavailable else noUsage
-            } else selectedDescription,
-            style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Medium,
-        )
+        Text(stringResource(R.string.chart_tap_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SectionTitle(stringResource(R.string.chart_selection))
+            Text(
+                if (detail.preset == AppHistoryPreset.TODAY && detail.hourlySeconds == null) {
+                    if (detail.days.any { it.usageSeconds > 0 }) unavailable else noUsage
+                } else selectedDescription,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
     }
 }
 
@@ -885,19 +1020,27 @@ private fun SettingsScreen(state: MainUiState, viewModel: MainViewModel, onBack:
     var showRestorePassword by remember { mutableStateOf(false) }
     var backupPassword by remember { mutableStateOf("") }
     var pendingRestorePassword by remember { mutableStateOf<CharArray?>(null) }
-    var exportScope by remember { mutableStateOf(ExportScope.ALL) }
-    var customExportRange by remember { mutableStateOf(DateRange.endingToday(30)) }
-    var showExportRange by remember { mutableStateOf(false) }
-    val selectedExportRange = customExportRange.takeIf { exportScope == ExportScope.CUSTOM }
-    val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri -> uri?.let { viewModel.exportCsv(it, selectedExportRange) } }
-    val jsonLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let { viewModel.exportJson(it, selectedExportRange) } }
+    var exportAll by rememberSaveable { mutableStateOf(false) }
+    var exportStart by rememberSaveable { mutableStateOf(state.range.start.toString()) }
+    var exportEnd by rememberSaveable { mutableStateOf(minOf(state.range.endInclusive, LocalDate.now()).toString()) }
+    var selectingExportRange by rememberSaveable { mutableStateOf(false) }
+    var pendingStart by rememberSaveable { mutableStateOf<String?>(null) }
+    var pendingEnd by rememberSaveable { mutableStateOf<String?>(null) }
+    fun pendingRange(): DateRange? = pendingStart?.let { DateRange(LocalDate.parse(it), LocalDate.parse(requireNotNull(pendingEnd))) }
+    fun captureExportScope(): String {
+        pendingStart = exportStart.takeUnless { exportAll }
+        pendingEnd = exportEnd.takeUnless { exportAll }
+        return if (exportAll) "all" else "$exportStart-to-$exportEnd"
+    }
+    val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri -> uri?.let { viewModel.exportCsv(it, pendingRange()) } }
+    val jsonLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri -> uri?.let { viewModel.exportJson(it, pendingRange()) } }
     val backupLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri -> uri?.let { viewModel.exportEncryptedBackup(it, backupPassword.toCharArray()) }; backupPassword = "" }
     val restoreLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { viewModel.restore(it, pendingRestorePassword) }; pendingRestorePassword = null }
-    LazyColumn(contentPadding = PaddingValues(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    LazyColumn(contentPadding = PaddingValues(UiSpacing.screen), verticalArrangement = Arrangement.spacedBy(UiSpacing.section)) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 UiIconButton(UiIcon.BACK, stringResource(R.string.back_to_dashboard), onBack)
-                Text(stringResource(R.string.settings), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                ScreenTitle(stringResource(R.string.settings), Modifier.weight(1f))
             }
         }
         item { SectionTitle(stringResource(R.string.data_collection)) }
@@ -911,30 +1054,24 @@ private fun SettingsScreen(state: MainUiState, viewModel: MainViewModel, onBack:
         item { SectionTitle(stringResource(R.string.export)) }
         item { Text(stringResource(R.string.export_description), color = MaterialTheme.colorScheme.onSurfaceVariant) }
         item {
-            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ExportScope.entries.forEach { scope ->
-                    FilterChip(selected = exportScope == scope, onClick = { exportScope = scope }, label = { Text(stringResource(scope.labelRes)) })
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected = exportAll, onClick = { exportAll = !exportAll }, enabled = !state.operationInProgress,
+                    label = { Text(stringResource(R.string.export_all_history)) })
+                OutlinedButton(onClick = { selectingExportRange = true }, enabled = !state.operationInProgress) {
+                    Text(stringResource(R.string.select_date_range))
                 }
-            }
-        }
-        item {
-            if (exportScope == ExportScope.ALL) {
-                Text(stringResource(R.string.all_export_description), style = MaterialTheme.typography.bodyMedium)
-            } else {
-                ListItem(
-                    headlineContent = { Text("${customExportRange.start} – ${customExportRange.endInclusive}") },
-                    supportingContent = { Text(stringResource(R.string.custom_export_description)) },
-                    trailingContent = { TextButton(onClick = { showExportRange = true }) { Text(stringResource(R.string.change)) } },
-                )
+                Text(if (exportAll) stringResource(R.string.export_all_history) else formatRange(DateRange(LocalDate.parse(exportStart), LocalDate.parse(exportEnd))),
+                    style = MaterialTheme.typography.bodyMedium)
+                if (state.operationInProgress) LinearProgressIndicator(Modifier.fillMaxWidth())
             }
         }
         item {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedButton(enabled = !state.operationInProgress, onClick = {
-                    csvLauncher.launch(exportFileName("csv", selectedExportRange))
+                    csvLauncher.launch("screen-consume-${captureExportScope()}.csv")
                 }) { Text(stringResource(R.string.export_csv)) }
                 OutlinedButton(enabled = !state.operationInProgress, onClick = {
-                    jsonLauncher.launch(exportFileName("json", selectedExportRange))
+                    jsonLauncher.launch("screen-consume-${captureExportScope()}.json")
                 }) { Text(stringResource(R.string.export_json)) }
             }
         }
@@ -957,6 +1094,16 @@ private fun SettingsScreen(state: MainUiState, viewModel: MainViewModel, onBack:
             }
         }
     }
+    if (selectingExportRange) ExportRangeDialog(
+        DateRange(LocalDate.parse(exportStart), LocalDate.parse(exportEnd)),
+        onDismiss = { selectingExportRange = false },
+        onConfirm = { range ->
+            exportStart = range.start.toString()
+            exportEnd = range.endInclusive.toString()
+            exportAll = false
+            selectingExportRange = false
+        },
+    )
     if (showBackupPassword) PasswordDialog(stringResource(R.string.backup_password), backupPassword, { backupPassword = it }, { showBackupPassword = false; backupPassword = "" }) {
         showBackupPassword = false
         backupLauncher.launch("screen-consume-backup.scb")
@@ -965,14 +1112,11 @@ private fun SettingsScreen(state: MainUiState, viewModel: MainViewModel, onBack:
         pendingRestorePassword = backupPassword.toCharArray(); backupPassword = ""; showRestorePassword = false
         restoreLauncher.launch(arrayOf("application/octet-stream", "*/*"))
     }
-    if (showExportRange) CustomRangeDialog(customExportRange, onDismiss = { showExportRange = false }) {
-        customExportRange = it
-        showExportRange = false
-    }
+
 }
 
 @Composable
-private fun SectionTitle(text: String) = Text(text, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+private fun SectionTitle(text: String) = Text(text, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
 
 @Composable
 private fun PasswordDialog(title: String, value: String, onValueChange: (String) -> Unit, onDismiss: () -> Unit, onConfirm: () -> Unit) {
@@ -985,25 +1129,8 @@ private fun PasswordDialog(title: String, value: String, onValueChange: (String)
     )
 }
 
-@Composable
-private fun CustomRangeDialog(initial: DateRange, onDismiss: () -> Unit, onConfirm: (DateRange) -> Unit) {
-    var start by remember { mutableStateOf(initial.start.toString()) }
-    var end by remember { mutableStateOf(initial.endInclusive.toString()) }
-    val parsed = runCatching { DateRange(LocalDate.parse(start), LocalDate.parse(end)) }.getOrNull()
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.custom_date_range)) },
-        text = { Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(stringResource(R.string.date_format_hint))
-            OutlinedTextField(start, { start = it }, label = { Text(stringResource(R.string.start)) }, singleLine = true)
-            OutlinedTextField(end, { end = it }, label = { Text(stringResource(R.string.end)) }, singleLine = true)
-        } },
-        confirmButton = { Button(enabled = parsed != null, onClick = { parsed?.let(onConfirm) }) { Text(stringResource(R.string.apply)) } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) } },
-    )
-}
-
 private fun duration(seconds: Long): String {
+    if (seconds in 1..59) return "<1m"
     val hours = TimeUnit.SECONDS.toHours(seconds)
     val minutes = TimeUnit.SECONDS.toMinutes(seconds) % 60
     return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
@@ -1017,7 +1144,3 @@ private fun formatRange(range: DateRange): String {
     return if (range.start == range.endInclusive) range.start.format(formatter)
     else "${range.start.format(formatter)} – ${range.endInclusive.format(formatter)}"
 }
-
-private fun exportFileName(extension: String, range: DateRange?): String =
-    if (range == null) "screen-consume-all.$extension"
-    else "screen-consume-${range.start}-${range.endInclusive}.$extension"

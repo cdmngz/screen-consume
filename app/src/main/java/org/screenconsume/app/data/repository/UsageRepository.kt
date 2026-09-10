@@ -10,6 +10,7 @@ import org.screenconsume.app.domain.analytics.hourlyUsageSeconds
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import org.screenconsume.app.data.database.*
 import org.screenconsume.app.data.export.DataPortability
 import org.screenconsume.app.data.preferences.AppPreferences
@@ -31,6 +32,10 @@ class UsageRepository(
     companion object {
         const val MAX_RESTORE_FILE_BYTES = 25 * 1024 * 1024
     }
+    val dashboardPreferences = preferences.dashboard
+    suspend fun setDashboardPreset(value: String) = preferences.setDashboardPreset(value)
+    suspend fun setDashboardSort(value: Boolean) = preferences.setDashboardSort(value)
+    suspend fun setDashboardBrief(value: Boolean) = preferences.setDashboardBrief(value)
     val hasUsageAccess: Boolean get() = source.hasUsageAccess()
     val lastSuccessfulAggregationMillis = preferences.lastSuccessfulAggregationMillis
     val earliestDate: Flow<LocalDate?> = database.usageDao().observeEarliestDate().map { it?.let(LocalDate::parse) }
@@ -95,10 +100,10 @@ class UsageRepository(
             }
         }
 
-    suspend fun exportCsv(uri: Uri, range: DateRange): Int = export(uri, range, encryptedPassword = null, csv = true)
-    suspend fun exportJson(uri: Uri, range: DateRange): Int = export(uri, range, encryptedPassword = null, csv = false)
-    suspend fun exportAllCsv(uri: Uri): Int = export(uri, fullRange(), encryptedPassword = null, csv = true)
-    suspend fun exportAllJson(uri: Uri): Int = export(uri, fullRange(), encryptedPassword = null, csv = false)
+    suspend fun exportCsv(uri: Uri, range: DateRange): Int = exportPlain(uri, range, csv = true)
+    suspend fun exportJson(uri: Uri, range: DateRange): Int = exportPlain(uri, range, csv = false)
+    suspend fun exportAllCsv(uri: Uri): Int = exportPlain(uri, fullRange(), csv = true)
+    suspend fun exportAllJson(uri: Uri): Int = exportPlain(uri, fullRange(), csv = false)
     suspend fun exportEncryptedBackup(uri: Uri, password: CharArray): Int = try {
         export(uri, fullRange(), encryptedPassword = password, csv = false)
     } finally {
@@ -140,6 +145,22 @@ class UsageRepository(
         password?.fill('\u0000')
     }
 
+    // Read one day at a time in a consistent snapshot; never buffer the complete plaintext file.
+    private suspend fun exportPlain(uri: Uri, range: DateRange, csv: Boolean): Int = withContext(Dispatchers.IO) {
+        context.contentResolver.openOutputStream(uri, "wt")?.bufferedWriter(Charsets.UTF_8)?.use { writer ->
+            database.withTransaction {
+                val exporter = DataPortability.StreamWriter(writer, csv)
+                var date = range.start
+                while (!date.isAfter(range.endInclusive)) {
+                    exporter.append(database.usageDao().portableRows(date.toString(), date.toString()))
+                    date = date.plusDays(1)
+                }
+                exporter.finish()
+                exporter.count
+            }
+        } ?: error("Could not write selected file")
+    }
+
     private suspend fun export(uri: Uri, range: DateRange, encryptedPassword: CharArray?, csv: Boolean): Int {
         val rows = database.usageDao().portableRows(range.start.toString(), range.endInclusive.toString())
         val plain = if (csv) DataPortability.toCsv(rows) else DataPortability.toJson(rows)
@@ -149,7 +170,7 @@ class UsageRepository(
     }
 
     private suspend fun fullRange(): DateRange {
-        val first = database.usageDao().portableRows("0000-01-01", "9999-12-31").firstOrNull()?.date?.let(LocalDate::parse) ?: LocalDate.now()
+        val first = earliestDate.first()?.coerceAtMost(LocalDate.now()) ?: LocalDate.now()
         return DateRange(first, LocalDate.now())
     }
 
