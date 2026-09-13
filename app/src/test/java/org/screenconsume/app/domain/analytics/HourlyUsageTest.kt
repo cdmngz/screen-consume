@@ -32,4 +32,17 @@ class HourlyUsageTest {
             assertEquals(if (hours == 23) 0L else 7_200L, result[2])
         }
     }
+
+    @Test fun `groups each app into eight three hour buckets`() {
+        val date = LocalDate.of(2026, 9, 2)
+        val zone = ZoneId.of("UTC")
+        val midnight = date.atStartOfDay(zone).toInstant().toEpochMilli()
+        val result = threeHourUsageByPackage(date, listOf(
+            UsageInterval("first", midnight, midnight + 4 * 3_600_000L),
+            UsageInterval("second", midnight + 23 * 3_600_000L, midnight + 24 * 3_600_000L),
+        ), zone)
+
+        assertEquals(listOf(10_800L, 3_600L, 0L, 0L, 0L, 0L, 0L, 0L), result["first"])
+        assertEquals(listOf(0L, 0L, 0L, 0L, 0L, 0L, 0L, 3_600L), result["second"])
+    }
 }

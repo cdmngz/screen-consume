@@ -199,10 +199,16 @@ internal fun detailChartPoints(
             val future = range.start.isAfter(today) || (range.start == today && hour > now.hour)
             DetailChartPoint(range.start, hour, if (future) null else hourlySeconds?.getOrNull(hour))
         }
-        AppHistoryPreset.YEAR -> (1..12).map { month ->
+        AppHistoryPreset.MONTH -> (1..12).map { month ->
             val date = java.time.LocalDate.of(range.start.year, month, 1)
             DetailChartPoint(date, seconds = if (date.isAfter(today)) null else days
                 .filter { YearMonth.from(it.date) == YearMonth.from(date) && !it.date.isAfter(today) }
+                .sumOf { it.usageSeconds })
+        }
+        AppHistoryPreset.YEAR -> (range.start.year..range.endInclusive.year).map { year ->
+            val date = java.time.LocalDate.of(year, 1, 1)
+            DetailChartPoint(date, seconds = if (year > today.year) null else days
+                .filter { it.date.year == year && !it.date.isAfter(today) }
                 .sumOf { it.usageSeconds })
         }
         else -> generateSequence(range.start) { it.plusDays(1) }.takeWhile { !it.isAfter(range.endInclusive) }

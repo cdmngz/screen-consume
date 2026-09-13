@@ -23,3 +23,12 @@ internal fun hourlyUsageSeconds(date: LocalDate, intervals: List<UsageInterval>,
     }
     return milliseconds.map { it / 1_000 }
 }
+
+/** Eight local three-hour buckets per package; usage remains transient and is not persisted. */
+internal fun threeHourUsageByPackage(
+    date: LocalDate,
+    intervals: List<UsageInterval>,
+    zone: ZoneId,
+): Map<String, List<Long>> = intervals.groupBy(UsageInterval::packageName).mapValues { (_, appIntervals) ->
+    hourlyUsageSeconds(date, appIntervals, zone).chunked(3).map(List<Long>::sum)
+}

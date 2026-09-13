@@ -9,6 +9,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
 import kotlinx.coroutines.launch
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -49,6 +50,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.stateDescription
@@ -101,7 +103,7 @@ private fun chartLabelStyle() = MaterialTheme.typography.labelSmall.copy(
     color = MaterialTheme.colorScheme.onSurfaceVariant,
 )
 
-private enum class UiIcon { SETTINGS, EXPAND, COLLAPSE, BACK, FORWARD, PREVIOUS, NEXT }
+private enum class UiIcon { SETTINGS, EXPAND, COLLAPSE, BACK, FORWARD, PREVIOUS, NEXT, CLEAR, DETAILS }
 
 @Composable
 fun ScreenConsumeApp(viewModel: MainViewModel, openUsageSettings: () -> Unit) {
@@ -194,7 +196,7 @@ private fun DashboardScreen(
 ) {
     var horizontalDrag by remember { mutableFloatStateOf(0f) }
     var highlightedPackage by rememberSaveable { mutableStateOf<String?>(null) }
-    val buckets = usageBuckets(state.preset, state.range, state.dailyApps, highlightedPackage)
+    val buckets = usageBuckets(state.preset, state.range, state.dailyApps, state.threeHourUsage, highlightedPackage)
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
     val highlight: (String) -> Unit = { packageName ->
@@ -261,12 +263,6 @@ private fun DashboardScreen(
         item {
             ElevatedCard(Modifier.fillMaxWidth(), shape = UiShapes.card) {
                 Column(Modifier.padding(UiSpacing.card), verticalArrangement = Arrangement.spacedBy(UiSpacing.content)) {
-                    highlightedPackage?.let { packageName ->
-                        val app = state.stats.apps.firstOrNull { it.packageName == packageName }
-                            ?: AppUsage(packageName, packageName, null, 0, 0)
-                        HighlightedAppLabel(app, clear = { highlightedPackage = null }, openApp = openApp)
-                    }
-
                     AnimatedContent(
                         targetState = state,
                         contentKey = { Triple(it.preset, it.range, it.loading) },
@@ -280,8 +276,13 @@ private fun DashboardScreen(
                                     CircularProgressIndicator(Modifier.size(28.dp))
                                 }
                             } else {
+                                highlightedPackage?.let { packageName ->
+                                    val app = chartState.stats.apps.firstOrNull { it.packageName == packageName }
+                                        ?: AppUsage(packageName, packageName, null, 0, 0)
+                                    HighlightedAppLabel(app, clear = { highlightedPackage = null }, openApp = openApp)
+                                }
                                 PeriodComparison(chartState)
-                                val chartBuckets = usageBuckets(chartState.preset, chartState.range, chartState.dailyApps, highlightedPackage)
+                                val chartBuckets = usageBuckets(chartState.preset, chartState.range, chartState.dailyApps, chartState.threeHourUsage, highlightedPackage)
                                 val fullBucket = UsageBucket(
                                     formatRange(chartState.range),
                                     rankedSegments(chartState.dailyApps.map { it to it.usageSeconds }, stringResource(R.string.other_apps), highlightedPackage),
@@ -289,6 +290,7 @@ private fun DashboardScreen(
                                 StackedUsageChart(
                                     chartBuckets,
                                     highlightedPackage = highlightedPackage,
+                                    compact = chartState.preset == RangePreset.TODAY,
                                     selectedIndex = selectedIndex,
                                     onSelect = { selectedIndex = if (selectedIndex == it) -1 else it },
                                     modifier = Modifier.onGloballyPositioned { chartBounds = it.boundsInRoot() },
@@ -325,13 +327,14 @@ private fun CollectionStatus(state: MainUiState) {
     val lastRun = state.lastSuccessfulAggregationMillis
     val stale = lastRun == null || System.currentTimeMillis() - lastRun > TimeUnit.HOURS.toMillis(1)
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        if (stale || state.refreshFailed || state.refreshing || state.stats.totalSeconds == 0L) {
+        // A newly selected range briefly carries empty placeholder stats. Do not present that
+        // transient state as a collection warning while the chart's neutral loader is visible.
+        if (!state.loading && (stale || state.refreshFailed || state.refreshing)) {
             Text(stringResource(when {
                 state.refreshing -> R.string.refreshing_usage
                 state.refreshFailed -> R.string.refresh_failed
                 lastRun == null -> R.string.data_unavailable
-                stale -> R.string.data_delayed
-                else -> R.string.no_usage_period
+                else -> R.string.data_delayed
             }), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
         }
     }
@@ -343,14 +346,29 @@ private fun PeriodComparison(state: MainUiState) {
     val prior = state.stats.previousTotalSeconds
     if (prior > 0) {
         val difference = state.stats.totalSeconds - prior
-        Text(stringResource(when {
+        val description = stringResource(when {
             difference > 0 -> R.string.usage_more
             difference < 0 -> R.string.usage_less
             else -> R.string.usage_same
-        }, duration(kotlin.math.abs(difference)), formatRange(state.range.previous())), style = MaterialTheme.typography.bodySmall)
-    }
-    if (prior > 0 && LocalDate.now() in state.range.start..state.range.endInclusive) {
-        Text(stringResource(R.string.partial_day_comparison), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }, duration(kotlin.math.abs(difference)), formatRange(state.range.previous()))
+        val color = when {
+            difference > 0 -> MaterialTheme.colorScheme.error
+            difference < 0 -> if (isSystemInDarkTheme()) Color(0xFF72DDB8) else Color(0xFF176B5B)
+            else -> MaterialTheme.colorScheme.onSurfaceVariant
+        }
+        Row(
+            modifier = Modifier.clearAndSetSemantics { contentDescription = description },
+            horizontalArrangement = Arrangement.spacedBy(5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(when {
+                difference > 0 -> "▲"
+                difference < 0 -> "▼"
+                else -> "—"
+            }, style = MaterialTheme.typography.labelSmall, color = color)
+            Text(duration(kotlin.math.abs(difference)), style = MaterialTheme.typography.bodySmall,
+                color = color, fontWeight = FontWeight.SemiBold)
+        }
     }
 }
 
@@ -399,6 +417,15 @@ private fun UiIconGraphic(icon: UiIcon, modifier: Modifier = Modifier) {
                 drawLine(color, point(9f, 5f), point(16f, 12f), strokeWidth, StrokeCap.Round)
                 drawLine(color, point(16f, 12f), point(9f, 19f), strokeWidth, StrokeCap.Round)
             }
+            UiIcon.CLEAR -> {
+                drawLine(color, point(7f, 7f), point(17f, 17f), strokeWidth, StrokeCap.Round)
+                drawLine(color, point(17f, 7f), point(7f, 17f), strokeWidth, StrokeCap.Round)
+            }
+            UiIcon.DETAILS -> {
+                drawCircle(color, 8f * scale, point(12f, 12f), style = Stroke(strokeWidth))
+                drawLine(color, point(12f, 10.5f), point(12f, 17f), strokeWidth, StrokeCap.Round)
+                drawCircle(color, 1.1f * scale, point(12f, 7f))
+            }
             UiIcon.SETTINGS -> Unit
         }
     }
@@ -410,7 +437,7 @@ private fun PeriodNavigation(selected: RangePreset, range: DateRange, select: (R
         PeriodButtons(selected, select)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             UiIconButton(UiIcon.PREVIOUS, stringResource(R.string.previous_period), { move(1) })
-            Text(formatRange(range), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
+            Text(formatPeriod(selected, range), Modifier.weight(1f), style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             UiIconButton(UiIcon.NEXT, stringResource(R.string.next_period), { move(-1) }, enabled = range.endInclusive.isBefore(LocalDate.now()))
         }
@@ -424,7 +451,7 @@ private fun PeriodNavigation(selected: RangePreset, range: DateRange, select: (R
 private fun PeriodButtons(selected: RangePreset, select: (RangePreset) -> Unit) {
     FlowRow(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
     ) {
         RangePreset.entries.forEach { preset ->
             FilterChip(
@@ -460,29 +487,33 @@ private fun MetricLabel(text: String) = Text(text, style = MaterialTheme.typogra
 private fun MetricValue(text: String) = Text(text, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.SemiBold)
 
 @Composable
-private fun usageBuckets(preset: RangePreset, range: DateRange, rows: List<DailyAppUsage>, highlighted: String?): List<UsageBucket> {
+private fun usageBuckets(
+    preset: RangePreset,
+    range: DateRange,
+    rows: List<DailyAppUsage>,
+    threeHourUsage: Map<String, List<Long>>?,
+    highlighted: String?,
+): List<UsageBucket> {
     val locale = LocalConfiguration.current.locales[0]
     val otherApps = stringResource(R.string.other_apps)
     fun ranked(label: String, values: List<Pair<DailyAppUsage, Long>>, description: String = label) =
         UsageBucket(label, rankedSegments(values, otherApps, highlighted), description)
     return when (preset) {
-        RangePreset.TODAY -> listOf(
-            (stringResource(R.string.morning) to "6–12") to { row: DailyAppUsage -> row.morningUsageSeconds },
-            (stringResource(R.string.afternoon) to "12–18") to { row: DailyAppUsage -> row.afternoonUsageSeconds },
-            (stringResource(R.string.evening) to "18–22") to { row: DailyAppUsage -> row.eveningUsageSeconds },
-            (stringResource(R.string.night) to "22–6") to { row: DailyAppUsage -> row.nightUsageSeconds },
-        ).map { (label, value) -> ranked("${label.first}\n${label.second}", rows.map { it to value(it) }, "${formatRange(range)} · ${label.first}") }
+        RangePreset.TODAY -> (0 until 24 step 3).mapIndexed { index, startHour ->
+            val label = "$startHour–${startHour + 3}"
+            ranked(label, rows.map { row -> row to (threeHourUsage?.get(row.packageName)?.getOrNull(index) ?: 0L) }, "${formatRange(range)} · $label")
+        }
         RangePreset.WEEK -> generateSequence(range.start) { it.plusDays(1) }.takeWhile { !it.isAfter(range.endInclusive) }.map { date ->
             ranked(date.format(DateTimeFormatter.ofPattern("EEEEE", locale)), rows.filter { it.date == date }.map { it to it.usageSeconds },
                 date.format(DateTimeFormatter.ofPattern("EEE, d MMM yyyy", locale)))
         }.toList()
-        RangePreset.MONTH -> monthWeekRanges(range.start).mapIndexed { week, weekRange ->
-            ranked(stringResource(R.string.week_number, week + 1), rows.filter { !it.date.isBefore(weekRange.start) && !it.date.isAfter(weekRange.endInclusive) }.map { it to it.usageSeconds }, formatRange(weekRange))
-        }
-        RangePreset.YEAR -> (1..12).map { month ->
+        RangePreset.MONTH -> (1..12).map { month ->
             val date = range.start.withMonth(month)
             ranked(date.format(DateTimeFormatter.ofPattern("MMM", locale)), rows.filter { it.date.monthValue == month }.map { it to it.usageSeconds },
                 date.format(DateTimeFormatter.ofPattern("MMMM yyyy", locale)))
+        }
+        RangePreset.YEAR -> (range.start.year..range.endInclusive.year).map { year ->
+            ranked(year.toString(), rows.filter { it.date.year == year }.map { it to it.usageSeconds }, year.toString())
         }
     }
 }
@@ -495,6 +526,7 @@ private fun segmentColor(segment: ChartSegment, index: Int, colors: List<Color>,
 private fun StackedUsageChart(
     buckets: List<UsageBucket>,
     highlightedPackage: String?,
+    compact: Boolean,
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
@@ -504,6 +536,7 @@ private fun StackedUsageChart(
     val tickSeconds = usageAxisStepSeconds(peak, 4)
     val maximum = tickSeconds * 4L
     val gridColor = MaterialTheme.colorScheme.outlineVariant
+    val selectedColor = MaterialTheme.colorScheme.primary
     val textMeasurer = rememberTextMeasurer()
     val axisStyle = chartLabelStyle()
     val labels = (1..4).map { tick ->
@@ -515,7 +548,8 @@ private fun StackedUsageChart(
     val density = androidx.compose.ui.platform.LocalDensity.current
     val topInset = with(density) { labels.maxOf { it.size.height }.toDp() / 2 }
     val slotWidth = with(density) {
-        (buckets.maxOfOrNull { textMeasurer.measure(it.label, axisStyle).size.width } ?: 0).toDp() + UiSpacing.axisGap * 2
+        (buckets.maxOfOrNull { textMeasurer.measure(it.label, axisStyle).size.width } ?: 0).toDp() +
+            if (compact) 6.dp else UiSpacing.axisGap * 2
     }
     Row(modifier.fillMaxWidth().padding(top = topInset)) {
         Canvas(Modifier.width(axisWidth).height(UiSpacing.plotHeight)) {
@@ -525,7 +559,7 @@ private fun StackedUsageChart(
             }
         }
         BoxWithConstraints(Modifier.weight(1f)) {
-            val plotWidth = maxOf(maxWidth, slotWidth * buckets.size)
+            val plotWidth = if (compact) slotWidth * buckets.size else maxOf(maxWidth, slotWidth * buckets.size)
             Box(Modifier.horizontalScroll(rememberScrollState())) {
                 Box(Modifier.width(plotWidth)) {
                     Canvas(Modifier.fillMaxWidth().height(UiSpacing.plotHeight)) {
@@ -540,12 +574,17 @@ private fun StackedUsageChart(
                             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Box(
                                     Modifier.fillMaxWidth().height(UiSpacing.plotHeight)
+                                        .padding(horizontal = if (compact) 2.dp else 0.dp)
+                                        .background(
+                                            if (selectedIndex == index) selectedColor.copy(alpha = .1f) else Color.Transparent,
+                                            MaterialTheme.shapes.small,
+                                        )
                                         .selectable(selected = selectedIndex == index, onClick = { onSelect(index) })
                                         .semantics { contentDescription = "${bucket.description} · ${duration(bucket.total)}" },
                                     contentAlignment = Alignment.BottomCenter,
                                 ) {
                                     if (bucket.total > 0) Column(
-                                        Modifier.fillMaxWidth(.72f)
+                                        Modifier.fillMaxWidth(if (compact) .46f else .72f)
                                             .fillMaxHeight((bucket.total.toFloat() / maximum).coerceIn(0f, 1f)),
                                         verticalArrangement = Arrangement.Bottom,
                                     ) {
@@ -557,7 +596,10 @@ private fun StackedUsageChart(
                                 Text(
                                     bucket.label,
                                     Modifier.padding(top = 8.dp).heightIn(min = 40.dp),
-                                    style = axisStyle,
+                                    style = axisStyle.copy(
+                                        color = if (selectedIndex == index) selectedColor else axisStyle.color,
+                                        fontWeight = if (selectedIndex == index) FontWeight.Bold else axisStyle.fontWeight,
+                                    ),
                                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                                     maxLines = 2,
                                 )
@@ -642,10 +684,23 @@ private fun HighlightedAppLabel(app: AppUsage, clear: () -> Unit, openApp: (AppU
             Image(BitmapPainter(icon), contentDescription = null, modifier = Modifier.size(32.dp))
         }
         Text(installed?.label?.takeIf(String::isNotBlank) ?: app.displayName,
-            style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f, fill = false),
             maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-        TextButton(onClick = clear) { Text(stringResource(R.string.clear_highlight)) }
-        TextButton(onClick = { openApp(app) }) { Text(stringResource(R.string.app_details)) }
+        Row(horizontalArrangement = Arrangement.spacedBy(1.dp)) {
+            CompactIconButton(UiIcon.DETAILS, stringResource(R.string.app_details)) { openApp(app) }
+            CompactIconButton(UiIcon.CLEAR, stringResource(R.string.clear_highlight), clear)
+        }
+    }
+}
+
+@Composable
+private fun CompactIconButton(icon: UiIcon, description: String, onClick: () -> Unit) {
+    Box(
+        Modifier.size(32.dp).clip(MaterialTheme.shapes.small).clickable(onClick = onClick)
+            .semantics { contentDescription = description },
+        contentAlignment = Alignment.Center,
+    ) {
+        UiIconGraphic(icon, Modifier.size(16.dp))
     }
 }
 
@@ -898,8 +953,8 @@ private fun UsageLineChart(detail: AppDetailUiState, modifier: Modifier = Modifi
         when (detail.preset) {
             AppHistoryPreset.TODAY -> point.hour.toString().padStart(2, '0')
             AppHistoryPreset.WEEK -> point.date.format(DateTimeFormatter.ofPattern("EEEEE", locale))
-            AppHistoryPreset.MONTH -> point.date.dayOfMonth.toString()
-            AppHistoryPreset.YEAR -> point.date.format(DateTimeFormatter.ofPattern("MMM", locale))
+            AppHistoryPreset.MONTH -> point.date.format(DateTimeFormatter.ofPattern("MMM", locale))
+            AppHistoryPreset.YEAR -> point.date.year.toString()
         }.let { textMeasurer.measure(it, axisStyle) }
     }
     val topInset = axisLabels.maxOf { it.size.height } / 2f
@@ -916,7 +971,8 @@ private fun UsageLineChart(detail: AppDetailUiState, modifier: Modifier = Modifi
     val selectedDescription = selected?.let { point ->
         val label = when (detail.preset) {
             AppHistoryPreset.TODAY -> "${point.date.format(DateTimeFormatter.ofPattern("d MMM", locale))} · ${point.hour}:00–${point.hour!! + 1}:00"
-            AppHistoryPreset.YEAR -> point.date.format(DateTimeFormatter.ofPattern("MMMM yyyy", locale))
+            AppHistoryPreset.MONTH -> point.date.format(DateTimeFormatter.ofPattern("MMMM yyyy", locale))
+            AppHistoryPreset.YEAR -> point.date.year.toString()
             else -> point.date.format(DateTimeFormatter.ofPattern("EEE, d MMM", locale))
         }
         val value = point.seconds?.let(::duration) ?: noValue
@@ -1143,4 +1199,19 @@ private fun formatRange(range: DateRange): String {
     val formatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
     return if (range.start == range.endInclusive) range.start.format(formatter)
     else "${range.start.format(formatter)} – ${range.endInclusive.format(formatter)}"
+}
+
+@Composable
+private fun formatPeriod(preset: RangePreset, range: DateRange): String {
+    val locale = LocalConfiguration.current.locales[0]
+    return when (preset) {
+        RangePreset.TODAY -> range.start.format(DateTimeFormatter.ofPattern("dd MMM", locale))
+        RangePreset.WEEK -> {
+            val week = range.start.get(java.time.temporal.WeekFields.ISO.weekOfWeekBasedYear())
+            val year = range.start.get(java.time.temporal.WeekFields.ISO.weekBasedYear())
+            "${stringResource(R.string.week_number, week)} · $year"
+        }
+        RangePreset.MONTH -> range.start.year.toString()
+        RangePreset.YEAR -> "${range.start.year}–${range.endInclusive.year}"
+    }
 }

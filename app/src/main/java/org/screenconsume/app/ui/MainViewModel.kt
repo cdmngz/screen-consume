@@ -49,6 +49,7 @@ data class MainUiState(
     val stats: DashboardStats = DashboardStats(),
     val headlineStats: HeadlineStats = HeadlineStats(),
     val dailyApps: List<DailyAppUsage> = emptyList(),
+    val threeHourUsage: Map<String, List<Long>>? = null,
     val lastSuccessfulAggregationMillis: Long? = null,
     val operationMessage: String? = null,
     val operationInProgress: Boolean = false,
@@ -94,8 +95,13 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
 
     private val rangeDashboard = observeRangeDashboard(range, repository::dashboard, repository::dailyAppUsage)
 
-    val state: StateFlow<MainUiState> = combine(access, rangeDashboard, repository.lastSuccessfulAggregationMillis, operation, refreshState) { granted, dashboard, lastRun, task, refresh ->
-        MainUiState(granted, dashboard.preset, dashboard.range, dashboard.stats, dashboard.headlines, dashboard.dailyApps, lastRun, task.message, task.inProgress, dashboard.loading, refresh.running, refresh.failed)
+    private val threeHourUsage = range.flatMapLatest { (preset, selectedRange) -> flow {
+        emit(if (preset == RangePreset.TODAY) repository.threeHourUsage(selectedRange.start) else null)
+    } }
+
+    val state: StateFlow<MainUiState> = combine(access, combine(rangeDashboard, threeHourUsage, ::Pair), repository.lastSuccessfulAggregationMillis, operation, refreshState) { granted, dashboardAndHours, lastRun, task, refresh ->
+        val (dashboard, hours) = dashboardAndHours
+        MainUiState(granted, dashboard.preset, dashboard.range, dashboard.stats, dashboard.headlines, dashboard.dailyApps, hours, lastRun, task.message, task.inProgress, dashboard.loading, refresh.running, refresh.failed)
     }.combine(repository.dashboardPreferences) { state, preferences ->
         state.copy(sortByName = preferences.sortByName, includeBrief = preferences.includeBrief)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainUiState())
@@ -208,10 +214,11 @@ internal fun appHistoryRange(today: LocalDate, preset: AppHistoryPreset, periods
         AppHistoryPreset.TODAY -> today.minusDays(offset).let { DateRange(it, it) }
         AppHistoryPreset.WEEK -> today.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
             .minusWeeks(offset).let { DateRange(it, it.plusDays(6)) }
-        AppHistoryPreset.MONTH -> YearMonth.from(today).minusMonths(offset).let {
-            DateRange(it.atDay(1), it.atEndOfMonth())
+        AppHistoryPreset.MONTH -> appHistoryYearRange(today, offset)
+        AppHistoryPreset.YEAR -> {
+            val endYear = today.year - offset.toInt() * 6
+            DateRange(LocalDate.of(endYear - 5, 1, 1), LocalDate.of(endYear, 12, 31))
         }
-        AppHistoryPreset.YEAR -> appHistoryYearRange(today, offset)
     }
 }
 

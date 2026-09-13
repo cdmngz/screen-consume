@@ -7,6 +7,7 @@ import androidx.room.withTransaction
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.screenconsume.app.domain.analytics.hourlyUsageSeconds
+import org.screenconsume.app.domain.analytics.threeHourUsageByPackage
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -88,6 +89,16 @@ class UsageRepository(
         if (end <= start) return@withContext null
         val intervals = source.read(start, end).intervals.filter { it.packageName == packageName }
         if (intervals.isEmpty()) null else hourlyUsageSeconds(date, intervals, zone)
+    }
+
+    /** Main day-chart detail is read on demand and is never added to the database. */
+    suspend fun threeHourUsage(date: LocalDate): Map<String, List<Long>>? = withContext(Dispatchers.IO) {
+        if (!source.hasUsageAccess()) return@withContext null
+        val zone = ZoneId.systemDefault()
+        val start = date.atStartOfDay(zone).toInstant().toEpochMilli()
+        val end = minOf(date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli(), System.currentTimeMillis())
+        if (end <= start) return@withContext null
+        threeHourUsageByPackage(date, source.read(start, end).intervals, zone)
     }
 
     fun dailyAppUsage(range: DateRange): Flow<List<DailyAppUsage>> =

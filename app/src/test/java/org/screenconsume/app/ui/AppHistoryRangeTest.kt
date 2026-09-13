@@ -60,9 +60,9 @@ class AppHistoryRangeTest {
     }
 
     @Test
-    fun `month navigation crosses year boundary`() {
+    fun `month view navigates by calendar year`() {
         val range = appHistoryRange(LocalDate.of(2026, 1, 2), AppHistoryPreset.MONTH, 1)
-        assertEquals(LocalDate.of(2025, 12, 1), range.start)
+        assertEquals(LocalDate.of(2025, 1, 1), range.start)
         assertEquals(LocalDate.of(2025, 12, 31), range.endInclusive)
     }
 
@@ -73,8 +73,8 @@ class AppHistoryRangeTest {
         assertEquals(LocalDate.of(2026, 8, 31), week.start)
         assertEquals(LocalDate.of(2026, 9, 6), week.endInclusive)
         val month = appHistoryRange(today, AppHistoryPreset.MONTH, 0)
-        assertEquals(LocalDate.of(2026, 9, 1), month.start)
-        assertEquals(LocalDate.of(2026, 9, 30), month.endInclusive)
+        assertEquals(LocalDate.of(2026, 1, 1), month.start)
+        assertEquals(LocalDate.of(2026, 12, 31), month.endInclusive)
     }
 
     @Test
@@ -87,5 +87,13 @@ class AppHistoryRangeTest {
         AppHistoryPreset.entries.forEach { preset ->
             assertEquals(appHistoryRange(today, preset, 0), appHistoryRange(today, preset, -1))
         }
+    }
+
+
+    @Test fun `year view uses six complete calendar years`() {
+        val range = appHistoryRange(LocalDate.of(2026, 9, 2), AppHistoryPreset.YEAR, 0)
+        assertEquals(LocalDate.of(2021, 1, 1), range.start)
+        assertEquals(LocalDate.of(2026, 12, 31), range.endInclusive)
+        assertEquals(LocalDate.of(2015, 1, 1), appHistoryRange(LocalDate.of(2026, 9, 2), AppHistoryPreset.YEAR, 1).start)
     }
 }

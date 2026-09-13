@@ -17,10 +17,6 @@
     <string name="usage_share">Distribuição da utilização</string>
     <string name="other_apps">Outras aplicações</string>
     <string name="week_number">S%1$d</string>
-    <string name="morning">Manhã</string>
-    <string name="afternoon">Tarde</string>
-    <string name="evening">Fim de tarde</string>
-    <string name="night">Noite</string>
     <string name="no_usage_period">Ainda não há utilização registada para este período.</string>
     <string name="open_settings">Abrir definições</string>
     <string name="back_to_dashboard">Voltar ao painel</string>
@@ -76,7 +72,6 @@
     <string name="usage_more">%1$s a mais do que em %2$s</string>
     <string name="usage_less">%1$s a menos do que em %2$s</string>
     <string name="usage_same">Mesma utilização registada que em %2$s</string>
-    <string name="partial_day_comparison">O dia de hoje ainda está em curso; esta comparação inclui um dia parcial.</string>
     <string name="chart_tap_hint">Toque num ponto para ver detalhes</string>
     <string name="less_than_minute">Menos de 1 min</string>
     <string name="export_all_history">Todo o histórico</string>
