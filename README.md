@@ -23,7 +23,7 @@ Dashboard and app details share calendar periods: Week runs Monday–Sunday; Mon
 
 Usage Access is granted and revoked in Android Settings. Raw events, activity names, and exact timestamps are processed in memory; only daily per-app aggregates are persisted. Reports may be incomplete because Android retains limited events and background collection can be delayed. A fresh collection timestamp does not prove complete historical coverage.
 
-History has no automatic expiration. Clear app storage or uninstall to remove local records; revoking Usage Access alone does not delete them. The database relies on Android’s sandbox and storage protections, not separate database encryption. Automatic Android backup is disabled in the app configuration.
+History has no automatic expiration, including for uninstalled apps. Delete an app’s history from its details (collection resumes tomorrow), or clear Screen Consume’s storage or uninstall Screen Consume to remove all local records; revoking Usage Access alone does not delete them. The database relies on Android’s sandbox and storage protections, not separate database encryption. Automatic Android backup is disabled in the app configuration.
 
 CSV/JSON export defaults to the dashboard period, capped at today, and supports a custom inclusive date range or all history. Plaintext exports stream daily batches off the main thread. Encrypted backups always include all recorded history through today. Android’s document picker can offer cloud-backed destinations. The privacy-policy button opens GitHub in an external browser; the app sends no usage history with that link.
 

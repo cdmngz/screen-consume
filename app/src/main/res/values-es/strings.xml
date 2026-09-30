@@ -22,11 +22,7 @@
     <string name="back_to_dashboard">Volver al inicio</string>
     <string name="no_app_usage_period">No se registró uso de esta app durante este periodo.</string>
     <string name="usage_trend_chart_description">Tendencia diaria de uso con fechas seleccionables</string>
-    <string name="calendar">Calendario</string>
     <string name="calendar_chart_description">Calendario de uso con fechas seleccionables</string>
-    <string name="collection_may_be_incomplete">La recopilación puede estar incompleta en parte del periodo. Consulta su estado en Ajustes.</string>
-    <plurals name="streak_days"><item quantity="one">%1$d día</item><item quantity="many">%1$d días</item><item quantity="other">%1$d días</item></plurals>
-    <string name="no_streaks">No hay días de uso en este periodo.</string>
     <string name="most_used_day">Día de mayor uso</string>
     <string name="data_collection">Recopilación de datos</string>
     <string name="collection_health">Estado de recopilación</string>
@@ -41,18 +37,16 @@
     <string name="restore_json">Restaurar JSON</string>
     <string name="restore_encrypted_backup">Restaurar copia cifrada</string>
     <string name="privacy">Privacidad</string>
-    <string name="privacy_description">El historial de uso permanece en esta app salvo que elijas un destino para exportar o guardar una copia. El destino puede usar almacenamiento en la nube. La app no tiene cuentas, analítica, publicidad ni permiso de Internet. La política de privacidad se abre en tu navegador.</string>
+    <string name="privacy_description">El historial de uso permanece en esta app salvo que elijas un destino para exportar o guardar una copia. El destino puede usar almacenamiento en la nube. La app no tiene cuentas, analítica, publicidad ni permiso de Internet. La política de privacidad se abre en tu navegador. Se conserva el historial de apps desinstaladas. Puedes eliminar el historial de una app desde sus detalles; la recopilación se reanuda mañana.</string>
     <string name="open_privacy_policy">Abrir política de privacidad en el navegador</string>
     <string name="backup_password">Contraseña de la copia</string>
     <string name="password">Contraseña</string>
     <string name="continue_action">Continuar</string>
     <string name="cancel">Cancelar</string>
     <string name="total_day_time">Tiempo total del día</string>
-    <string name="average_in_month">Promedio en %1$s</string>
+    <string name="average_in_month">Promedio %1$s</string>
     <string name="total_all_time">Total histórico</string>
     <string name="total_in_period">Total en %1$s</string>
-    <string name="active_days">Días activos</string>
-    <string name="top_consecutive_days">Mejores rachas de días</string>
     <string name="previous_period">Período anterior</string>
     <string name="next_period">Período siguiente</string>
     <string name="hourly_usage_unavailable">El uso por horas no está disponible para este día.</string>
@@ -72,7 +66,6 @@
     <string name="usage_more">%1$s más que en %2$s</string>
     <string name="usage_less">%1$s menos que en %2$s</string>
     <string name="usage_same">Mismo uso registrado que en %2$s</string>
-    <string name="chart_tap_hint">Toca un punto para ver detalles</string>
     <string name="less_than_minute">Menos de 1 min</string>
     <string name="export_all_history">Todo el historial</string>
     <string name="select_date_range">Seleccionar intervalo de fechas</string>
@@ -80,4 +73,13 @@
     <string name="clear_highlight">Quitar</string>
     <string name="chart_selection">Selección del gráfico</string>
     <string name="clear_search">Borrar búsqueda</string>
+    <string name="delete_usage_history">Eliminar historial de uso</string>
+    <string name="delete_usage_history_confirmation">¿Eliminar todo el uso registrado de %1$s? Los totales históricos cambiarán y no se puede deshacer. La recopilación de esta app se reanuda mañana. Las exportaciones y copias existentes no se eliminan; restaurarlas puede recuperar este historial.</string>
+    <string name="history_deleted">Historial de uso eliminado</string>
+    <string name="history_delete_failed">No se pudo eliminar el historial. Inténtalo de nuevo.</string>
+    <string name="average_active_day">Promedio por día activo</string>
+    <string name="more_options">Más opciones</string>
+    <string name="options_expanded">Expandido</string>
+    <string name="options_collapsed">Contraído</string>
+    <string name="loading_usage">Cargando el uso…</string>
 </resources>

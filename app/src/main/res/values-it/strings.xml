@@ -22,11 +22,7 @@
     <string name="back_to_dashboard">Torna alla panoramica</string>
     <string name="no_app_usage_period">Nessun utilizzo registrato per questa app nel periodo.</string>
     <string name="usage_trend_chart_description">Andamento giornaliero dell’utilizzo con date selezionabili</string>
-    <string name="calendar">Calendario</string>
     <string name="calendar_chart_description">Calendario di utilizzo con date selezionabili</string>
-    <string name="collection_may_be_incomplete">La raccolta potrebbe essere incompleta per parte del periodo. Controlla Stato raccolta nelle Impostazioni.</string>
-    <plurals name="streak_days"><item quantity="one">%1$d giorno</item><item quantity="many">%1$d giorni</item><item quantity="other">%1$d giorni</item></plurals>
-    <string name="no_streaks">Nessun giorno di utilizzo in questo periodo.</string>
     <string name="most_used_day">Giorno di maggiore utilizzo</string>
     <string name="data_collection">Raccolta dati</string>
     <string name="collection_health">Stato raccolta</string>
@@ -41,18 +37,16 @@
     <string name="restore_json">Ripristina JSON</string>
     <string name="restore_encrypted_backup">Ripristina backup crittografato</string>
     <string name="privacy">Privacy</string>
-    <string name="privacy_description">La cronologia di utilizzo resta in questa app finché non scegli una destinazione per esportarla o salvarne una copia. La destinazione può usare il cloud. L’app non ha account, analisi, pubblicità o permesso Internet. L’informativa sulla privacy si apre nel browser.</string>
+    <string name="privacy_description">La cronologia di utilizzo resta in questa app finché non scegli una destinazione per esportarla o salvarne una copia. La destinazione può usare il cloud. L’app non ha account, analisi, pubblicità o permesso Internet. L’informativa sulla privacy si apre nel browser. La cronologia delle app disinstallate viene conservata. Puoi eliminare la cronologia di un’app dai suoi dettagli; la raccolta riprende domani.</string>
     <string name="open_privacy_policy">Apri l’informativa nel browser</string>
     <string name="backup_password">Password del backup</string>
     <string name="password">Password</string>
     <string name="continue_action">Continua</string>
     <string name="cancel">Annulla</string>
     <string name="total_day_time">Tempo totale del giorno</string>
-    <string name="average_in_month">Media in %1$s</string>
+    <string name="average_in_month">Media %1$s</string>
     <string name="total_all_time">Totale storico</string>
     <string name="total_in_period">Totale nel periodo: %1$s</string>
-    <string name="active_days">Giorni attivi</string>
-    <string name="top_consecutive_days">Migliori serie di giorni</string>
     <string name="previous_period">Periodo precedente</string>
     <string name="next_period">Periodo successivo</string>
     <string name="hourly_usage_unavailable">L’utilizzo orario non è disponibile per questo giorno.</string>
@@ -72,7 +66,6 @@
     <string name="usage_more">%1$s in più rispetto a %2$s</string>
     <string name="usage_less">%1$s in meno rispetto a %2$s</string>
     <string name="usage_same">Stesso utilizzo registrato di %2$s</string>
-    <string name="chart_tap_hint">Tocca un punto per i dettagli</string>
     <string name="less_than_minute">Meno di 1 min</string>
     <string name="export_all_history">Tutta la cronologia</string>
     <string name="select_date_range">Seleziona intervallo di date</string>
@@ -80,4 +73,13 @@
     <string name="clear_highlight">Rimuovi</string>
     <string name="chart_selection">Selezione del grafico</string>
     <string name="clear_search">Cancella ricerca</string>
+    <string name="delete_usage_history">Elimina cronologia di utilizzo</string>
+    <string name="delete_usage_history_confirmation">Eliminare tutto l’utilizzo registrato per %1$s? I totali storici cambieranno e l’azione non può essere annullata. La raccolta per questa app riprende domani. Le esportazioni e i backup esistenti non vengono eliminati; ripristinarli può recuperare questa cronologia.</string>
+    <string name="history_deleted">Cronologia di utilizzo eliminata</string>
+    <string name="history_delete_failed">Impossibile eliminare la cronologia. Riprova.</string>
+    <string name="average_active_day">Media per giorno attivo</string>
+    <string name="more_options">Altre opzioni</string>
+    <string name="options_expanded">Espanso</string>
+    <string name="options_collapsed">Compresso</string>
+    <string name="loading_usage">Caricamento utilizzo…</string>
 </resources>

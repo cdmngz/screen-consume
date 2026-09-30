@@ -69,7 +69,7 @@ Run checks proportional to the change:
 
 - Keep dependency changes narrow and human-reviewed; never enable automatic merging.
 - Review release notes, advisories, and the resolved graph. Coordinate Gradle, Android Gradle Plugin, Kotlin, KSP, and Compose tooling upgrades.
-- Room 2.8.4 is the currently validated version. A clean build with schema export enabled succeeded on August 27, 2026; review the committed schema and rerun a clean build when upgrading it again.
+- Room 2.8.5 is the currently validated version. A clean build with schema export enabled and connected migration tests succeeded on September 30, 2026; review the committed schema and rerun a clean build when upgrading it again.
 - Keep the wrapper distribution checksum synchronized with Gradle's official checksum. Do not casually generate dependency locks or verification metadata; introduce them only in a dedicated reviewed change.
 - The Android CI workflow has separate test, lint, unused Kotlin code (Detekt), unsigned build, and release privacy/security jobs. Every workflow must have minimal explicit `permissions`, pin third-party actions to full commit SHAs, avoid secrets for untrusted code, and never sign or publish using the local identity. Dependabot does not require a workflow.
 

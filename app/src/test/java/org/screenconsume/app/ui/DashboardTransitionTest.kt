@@ -63,4 +63,29 @@ class DashboardTransitionTest {
         assertEquals(today, ready.last().headlines.month)
         job.cancel()
     }
+
+    @Test fun `empty dashboard exits loading and updates totals without another loading state`() = runTest {
+        val today = LocalDate.now()
+        val range = DateRange(today, today)
+        val stats = MutableStateFlow(DashboardStats())
+        val results = mutableListOf<RangeDashboard>()
+        val job = launch {
+            observeRangeDashboard(
+                MutableStateFlow(RangePreset.TODAY to range),
+                dashboard = { stats },
+                dailyAppUsage = { kotlinx.coroutines.flow.flowOf(emptyList()) },
+            ).collect { results += it }
+        }
+        runCurrent()
+        assertTrue(results.first().loading)
+        assertEquals(false, results.last().loading)
+        assertEquals(0L, results.last().stats.totalSeconds)
+        stats.value = DashboardStats(totalSeconds = 120, averageDailySeconds = 60)
+        runCurrent()
+        assertEquals(120L, results.last().stats.totalSeconds)
+        assertEquals(120L, results.last().headlines.todaySeconds)
+        assertEquals(1, results.count { it.loading })
+        job.cancel()
+    }
+
 }

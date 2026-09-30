@@ -27,4 +27,10 @@ class UsageAxisTest {
         assertEquals("15m", usageAxisLabel(900))
         assertEquals("0m", usageAxisLabel(0))
     }
+    @Test
+    fun `fractional hours do not repeat whole hour labels`() {
+        assertEquals("1h", usageAxisLabel(3600))
+        assertEquals("1h 20m", usageAxisLabel(4800))
+        assertEquals("1h 40m", usageAxisLabel(6000))
+    }
 }

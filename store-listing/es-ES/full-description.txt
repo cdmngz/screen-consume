@@ -27,3 +27,4 @@ El Acceso de uso de Android es necesario para calcular los resúmenes. Se conced
 
 Screen Consume es un proyecto independiente y de código abierto. No está afiliado ni respaldado por Google, Android o Digital Wellbeing.
 
+El historial se conserva al desinstalar una app registrada. Elimina su historial de uso desde los detalles; la recopilación se reanuda al día siguiente. Las exportaciones y copias de seguridad existentes no cambian.

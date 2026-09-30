@@ -14,8 +14,18 @@ interface UsageDao {
     @Upsert
     suspend fun upsertDaily(record: DailyAppUsageEntity)
 
-    @Query("DELETE FROM daily_app_usage WHERE date = :date")
-    suspend fun deleteDate(date: String)
+    @Query("DELETE FROM apps WHERE packageName = :packageName")
+    suspend fun deleteApp(packageName: String)
+
+    @Upsert
+    suspend fun upsertDeletion(deletion: HistoryDeletionEntity)
+
+    @Query("SELECT * FROM history_deletions")
+    suspend fun deletions(): List<HistoryDeletionEntity>
+
+    @Query("SELECT throughDate FROM history_deletions WHERE packageName = :packageName")
+    suspend fun deletedThrough(packageName: String): String?
+
 
     @Query("SELECT MIN(date) FROM daily_app_usage")
     fun observeEarliestDate(): Flow<String?>

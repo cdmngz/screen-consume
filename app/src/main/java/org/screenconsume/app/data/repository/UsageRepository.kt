@@ -50,9 +50,13 @@ class UsageRepository(
         val records = aggregator.aggregate(date, snapshot.intervals, snapshot.launches)
         database.withTransaction {
             val dao = database.usageDao()
-            // Replace the complete day snapshot; retries therefore converge to one record per app/day.
-            dao.deleteDate(date.toString())
+            // Android may return an incomplete snapshot after uninstall or event expiry.
+            // Keep missing/shorter records, and upsert fuller snapshots without adding twice.
+            val existing = dao.portableRows(date.toString(), date.toString()).associateBy { it.packageName }
+            val deletions = dao.deletions().associate { it.packageName to it.throughDate }
             records.forEach { record ->
+                if (deletions[record.packageName]?.let { date.toString() <= it } == true) return@forEach
+                if ((existing[record.packageName]?.usageSeconds ?: -1) > record.usageSeconds) return@forEach
                 var id = dao.appId(record.packageName)
                 if (id == null) {
                     val info = resolveApp(record.packageName)
@@ -63,6 +67,15 @@ class UsageRepository(
             }
         }
         preferences.markAggregationSuccessful()
+    }
+
+    suspend fun deleteAppHistory(packageName: String) {
+        database.withTransaction {
+            val dao = database.usageDao()
+            val through = maxOf(LocalDate.now().toString(), dao.deletedThrough(packageName) ?: "")
+            dao.upsertDeletion(HistoryDeletionEntity(packageName, through))
+            dao.deleteApp(packageName)
+        }
     }
 
     fun dashboard(range: DateRange): Flow<DashboardStats> {
@@ -88,6 +101,7 @@ class UsageRepository(
         val end = minOf(date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli(), System.currentTimeMillis())
         if (end <= start) return@withContext null
         val intervals = source.read(start, end).intervals.filter { it.packageName == packageName }
+        if (database.usageDao().deletedThrough(packageName)?.let { date.toString() <= it } == true) return@withContext null
         if (intervals.isEmpty()) null else hourlyUsageSeconds(date, intervals, zone)
     }
 
@@ -98,7 +112,11 @@ class UsageRepository(
         val start = date.atStartOfDay(zone).toInstant().toEpochMilli()
         val end = minOf(date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli(), System.currentTimeMillis())
         if (end <= start) return@withContext null
-        threeHourUsageByPackage(date, source.read(start, end).intervals, zone)
+        val intervals = source.read(start, end).intervals
+        val deletions = database.usageDao().deletions().associate { it.packageName to it.throughDate }
+        threeHourUsageByPackage(date, intervals.filter { interval ->
+            deletions[interval.packageName]?.let { date.toString() <= it } != true
+        }, zone)
     }
 
     fun dailyAppUsage(range: DateRange): Flow<List<DailyAppUsage>> =

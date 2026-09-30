@@ -9,16 +9,16 @@ class DetailChartPointsTest {
     private val today = LocalDate.of(2026, 9, 2)
     private val now = today.atTime(14, 30)
 
-    @Test fun `day has twenty four hours with future values blank`() {
+    @Test fun `day sums three hour buckets with future values blank`() {
         val points = detailChartPoints(AppHistoryPreset.TODAY, appHistoryRange(today, AppHistoryPreset.TODAY, 0), emptyList(), List(24) { 60L }, now)
-        assertEquals((0..23).toList(), points.map { it.hour })
-        assertEquals(60L, points[14].seconds)
-        assertEquals(null, points[15].seconds)
+        assertEquals((0 until 24 step 3).toList(), points.map { it.hour })
+        assertEquals(180L, points[4].seconds)
+        assertEquals(null, points[5].seconds)
     }
 
     @Test fun `unavailable hourly history is not invented from daily totals`() {
         val points = detailChartPoints(AppHistoryPreset.TODAY, appHistoryRange(today, AppHistoryPreset.TODAY, 0), listOf(DayUsage(today, 7_200)), null, now)
-        assertEquals(24, points.size)
+        assertEquals(8, points.size)
         assertEquals(true, points.all { it.seconds == null })
     }
 
@@ -45,5 +45,17 @@ class DetailChartPointsTest {
         val points = detailChartPoints(AppHistoryPreset.YEAR, appHistoryRange(today, AppHistoryPreset.YEAR, 0), days, null, now)
         assertEquals((2021..2026).toList(), points.map { it.date.year })
         assertEquals(listOf(60L, 0L, 0L, 0L, 0L, 120L), points.map { it.seconds })
+    }
+    @Test fun `current three hour bucket excludes future hours`() {
+        val points = detailChartPoints(AppHistoryPreset.TODAY, appHistoryRange(today, AppHistoryPreset.TODAY, 0), emptyList(), List(24) { 60L }, today.atTime(13, 30))
+        assertEquals(120L, points[4].seconds)
+        assertEquals(null, points[5].seconds)
+    }
+
+    @Test fun `past day groups all hours without losing usage`() {
+        val yesterday = today.minusDays(1)
+        val points = detailChartPoints(AppHistoryPreset.TODAY, org.screenconsume.app.domain.model.DateRange(yesterday, yesterday), emptyList(), List(24) { it.toLong() }, now)
+        assertEquals(276L, points.sumOf { requireNotNull(it.seconds) })
+        assertEquals(66L, points.last().seconds)
     }
 }

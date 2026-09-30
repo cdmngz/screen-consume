@@ -25,7 +25,11 @@ internal fun usageAxisStepSeconds(peak: Long, intervals: Int): Long {
 }
 
 internal fun usageAxisLabel(seconds: Long): String =
-    if (seconds >= 3_600L) "${seconds / 3_600L}h" else "${seconds / 60L}m"
+    when {
+        seconds < 3_600L -> "${seconds / 60L}m"
+        seconds % 3_600L == 0L -> "${seconds / 3_600L}h"
+        else -> "${seconds / 3_600L}h ${seconds % 3_600L / 60L}m"
+    }
 
 internal fun yAxisLabelValues(maximum: Long): List<Long?> =
     (3 downTo 1).map { step -> (maximum * step / 3).takeIf { it > 0 } }
@@ -195,9 +199,14 @@ internal fun detailChartPoints(
     val today = now.toLocalDate()
     val byDate = days.associate { it.date to it.usageSeconds }
     return when (preset) {
-        AppHistoryPreset.TODAY -> (0..23).map { hour ->
+        AppHistoryPreset.TODAY -> (0 until 24 step 3).map { hour ->
             val future = range.start.isAfter(today) || (range.start == today && hour > now.hour)
-            DetailChartPoint(range.start, hour, if (future) null else hourlySeconds?.getOrNull(hour))
+            val seconds = hourlySeconds?.let { values ->
+                (hour until hour + 3).filter { range.start != today || it <= now.hour }
+                    .map { values.getOrNull(it) }.takeIf { bucket -> bucket.all { it != null } }
+                    ?.sumOf { requireNotNull(it) }
+            }
+            DetailChartPoint(range.start, hour, if (future) null else seconds)
         }
         AppHistoryPreset.MONTH -> (1..12).map { month ->
             val date = java.time.LocalDate.of(range.start.year, month, 1)

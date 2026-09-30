@@ -34,6 +34,7 @@ data class AppDetailUiState(
     val calendarDays: List<DayUsage> = emptyList(),
     val canMoveToNewerPeriod: Boolean = false,
     val hourlySeconds: List<Long>? = null,
+    val loading: Boolean = false,
 )
 
 data class HeadlineStats(
@@ -77,6 +78,7 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
     private val selection = MutableStateFlow(RangePreset.TODAY to 0L)
     private val access = MutableStateFlow(repository.hasUsageAccess)
     private val operation = MutableStateFlow(OperationState())
+    private val historyRevision = MutableStateFlow(0L)
     private val selectedApp = MutableStateFlow<AppUsage?>(null)
     private val appHistoryPreset = MutableStateFlow(AppHistoryPreset.WEEK)
     private val appHistoryPeriodOffset = MutableStateFlow(0L)
@@ -95,7 +97,8 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
 
     private val rangeDashboard = observeRangeDashboard(range, repository::dashboard, repository::dailyAppUsage)
 
-    private val threeHourUsage = range.flatMapLatest { (preset, selectedRange) -> flow {
+    private val threeHourUsage = combine(range, historyRevision) { selected, _ -> selected }
+        .flatMapLatest { (preset, selectedRange) -> flow {
         emit(if (preset == RangePreset.TODAY) repository.threeHourUsage(selectedRange.start) else null)
     } }
 
@@ -106,7 +109,7 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
         state.copy(sortByName = preferences.sortByName, includeBrief = preferences.includeBrief)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), MainUiState())
 
-    val appDetail: StateFlow<AppDetailUiState?> = combine(selectedApp, appHistoryPreset, appHistoryPeriodOffset) { app, selected, offset ->
+    val appDetail: StateFlow<AppDetailUiState?> = combine(selectedApp, appHistoryPreset, appHistoryPeriodOffset, historyRevision) { app, selected, offset, _ ->
         if (app == null) null else {
             val today = LocalDate.now()
             val detailRange = appHistoryRange(today, selected, offset)
@@ -116,14 +119,11 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
         if (selection == null) flowOf(null) else {
             val (details, offset) = selection
             val (app, selected, detailRange) = details
-            val hours: Flow<List<Long>?> = if (selected == AppHistoryPreset.TODAY) flow {
-                emit(repository.appHourlyUsage(app.packageName, detailRange.start))
-            } else flowOf(null)
-            combine(
+            observeAppDetail(
+                app, selected, detailRange, offset > 0,
                 repository.appHistory(app.packageName, detailRange),
                 repository.appHistory(app.packageName, DateRange(LocalDate.of(2010, 1, 1), LocalDate.now())),
-                hours,
-            ) { days, calendarDays, hourly -> AppDetailUiState(app, selected, detailRange, days, calendarDays, offset > 0, hourly) }
+            ) { repository.appHourlyUsage(app.packageName, detailRange.start) }
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
@@ -144,6 +144,24 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
         appHistoryPeriodOffset.value = offset
         selectedApp.value = app
     }
+    fun deleteAppHistory(packageName: String, success: String, failure: String) {
+        if (operation.value.inProgress) return
+        operation.value = OperationState(inProgress = true)
+        viewModelScope.launch {
+            try {
+                repository.deleteAppHistory(packageName)
+                historyRevision.update { it + 1 }
+                if (selectedApp.value?.packageName == packageName) closeApp()
+                operation.value = OperationState(message = success)
+            } catch (cancelled: CancellationException) {
+                operation.value = OperationState()
+                throw cancelled
+            } catch (_: Exception) {
+                operation.value = OperationState(message = failure)
+            }
+        }
+    }
+
     fun closeApp() { selectedApp.value = null; appHistoryPeriodOffset.value = 0 }
     fun selectAppHistoryPreset(value: AppHistoryPreset) { appHistoryPeriodOffset.value = 0; appHistoryPreset.value = value }
     fun moveAppHistoryPeriod(periodsOlder: Long) {
@@ -158,6 +176,7 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
             viewModelScope.launch {
                 try {
                     repository.aggregate(LocalDate.now())
+                    historyRevision.update { it + 1 }
                     refreshState.value = RefreshState()
                 } catch (cancelled: CancellationException) {
                     refreshState.value = RefreshState()
@@ -253,4 +272,20 @@ internal fun observeRangeDashboard(
     ) { stats, apps, summary ->
         RangeDashboard(selected, selectedRange, stats, apps, summary, loading = false)
     }.onStart { emit(RangeDashboard(selected, selectedRange)) }
+}
+
+/** Show the selected app immediately, then replace placeholders when every query is ready. */
+internal fun observeAppDetail(
+    app: AppUsage,
+    preset: AppHistoryPreset,
+    range: DateRange,
+    canMoveToNewerPeriod: Boolean,
+    days: Flow<List<DayUsage>>,
+    calendarDays: Flow<List<DayUsage>>,
+    hourlyUsage: suspend () -> List<Long>?,
+): Flow<AppDetailUiState> {
+    val hours = flow { emit(if (preset == AppHistoryPreset.TODAY) hourlyUsage() else null) }
+    return combine(days, calendarDays, hours) { current, calendar, hourly ->
+        AppDetailUiState(app, preset, range, current, calendar, canMoveToNewerPeriod, hourly)
+    }.onStart { emit(AppDetailUiState(app, preset, range, canMoveToNewerPeriod = canMoveToNewerPeriod, loading = true)) }
 }

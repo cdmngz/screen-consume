@@ -22,11 +22,7 @@
     <string name="back_to_dashboard">Retour au tableau de bord</string>
     <string name="no_app_usage_period">Aucune utilisation de cette application n’a été enregistrée durant cette période.</string>
     <string name="usage_trend_chart_description">Tendance quotidienne d’utilisation avec dates sélectionnables</string>
-    <string name="calendar">Calendrier</string>
     <string name="calendar_chart_description">Calendrier d’utilisation avec dates sélectionnables</string>
-    <string name="collection_may_be_incomplete">La collecte peut être incomplète pour une partie de cette période. Consultez État de la collecte dans les paramètres.</string>
-    <plurals name="streak_days"><item quantity="one">%1$d jour</item><item quantity="many">%1$d jours</item><item quantity="other">%1$d jours</item></plurals>
-    <string name="no_streaks">Aucun jour d’utilisation sur cette période.</string>
     <string name="most_used_day">Jour le plus utilisé</string>
     <string name="data_collection">Collecte des données</string>
     <string name="collection_health">État de la collecte</string>
@@ -41,18 +37,16 @@
     <string name="restore_json">Restaurer un JSON</string>
     <string name="restore_encrypted_backup">Restaurer une sauvegarde chiffrée</string>
     <string name="privacy">Confidentialité</string>
-    <string name="privacy_description">L’historique d’utilisation reste dans cette application sauf si vous choisissez une destination d’exportation ou de sauvegarde. Cette destination peut utiliser le cloud. L’application ne propose ni comptes, ni analyse, ni publicité, ni autorisation Internet. La politique de confidentialité s’ouvre dans votre navigateur.</string>
+    <string name="privacy_description">L’historique d’utilisation reste dans cette application sauf si vous choisissez une destination d’exportation ou de sauvegarde. Cette destination peut utiliser le cloud. L’application ne propose ni comptes, ni analyse, ni publicité, ni autorisation Internet. La politique de confidentialité s’ouvre dans votre navigateur. L’historique des apps désinstallées est conservé. Vous pouvez supprimer l’historique d’une app depuis ses détails ; la collecte reprend demain.</string>
     <string name="open_privacy_policy">Ouvrir la politique dans le navigateur</string>
     <string name="backup_password">Mot de passe de sauvegarde</string>
     <string name="password">Mot de passe</string>
     <string name="continue_action">Continuer</string>
     <string name="cancel">Annuler</string>
     <string name="total_day_time">Temps total du jour</string>
-    <string name="average_in_month">Moyenne en %1$s</string>
+    <string name="average_in_month">Moyenne %1$s</string>
     <string name="total_all_time">Total historique</string>
     <string name="total_in_period">Total sur %1$s</string>
-    <string name="active_days">Jours actifs</string>
-    <string name="top_consecutive_days">Meilleures séries de jours</string>
     <string name="previous_period">Période précédente</string>
     <string name="next_period">Période suivante</string>
     <string name="hourly_usage_unavailable">L’utilisation par heure n’est pas disponible pour ce jour.</string>
@@ -72,7 +66,6 @@
     <string name="usage_more">%1$s de plus que sur %2$s</string>
     <string name="usage_less">%1$s de moins que sur %2$s</string>
     <string name="usage_same">Même utilisation enregistrée que sur %2$s</string>
-    <string name="chart_tap_hint">Touchez un point pour voir les détails</string>
     <string name="less_than_minute">Moins de 1 min</string>
     <string name="export_all_history">Tout l’historique</string>
     <string name="select_date_range">Choisir une période</string>
@@ -80,4 +73,13 @@
     <string name="clear_highlight">Effacer</string>
     <string name="chart_selection">Sélection du graphique</string>
     <string name="clear_search">Effacer la recherche</string>
+    <string name="delete_usage_history">Supprimer l’historique d’utilisation</string>
+    <string name="delete_usage_history_confirmation">Supprimer toute l’utilisation enregistrée pour %1$s ? Les totaux historiques seront modifiés et cette action est irréversible. La collecte pour cette app reprend demain. Les exports et sauvegardes existants ne sont pas supprimés ; leur restauration peut rétablir cet historique.</string>
+    <string name="history_deleted">Historique d’utilisation supprimé</string>
+    <string name="history_delete_failed">Impossible de supprimer l’historique. Réessayez.</string>
+    <string name="average_active_day">Moyenne par jour actif</string>
+    <string name="more_options">Plus d’options</string>
+    <string name="options_expanded">Développé</string>
+    <string name="options_collapsed">Réduit</string>
+    <string name="loading_usage">Chargement de l’utilisation…</string>
 </resources>

@@ -9,6 +9,7 @@ import org.screenconsume.app.data.preferences.AppPreferences
 
 class AppContainer(context: Context) {
     private val appContext = context.applicationContext
-    private val database = Room.databaseBuilder(appContext, ScreenConsumeDatabase::class.java, "screen-consume.db").build()
+    private val database = Room.databaseBuilder(appContext, ScreenConsumeDatabase::class.java, "screen-consume.db")
+        .addMigrations(ScreenConsumeDatabase.MIGRATION_1_2).build()
     val repository = UsageRepository(appContext, database, AndroidUsageDataSource(appContext), AppPreferences(appContext))
 }

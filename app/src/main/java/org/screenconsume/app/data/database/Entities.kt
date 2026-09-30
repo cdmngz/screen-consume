@@ -49,3 +49,10 @@ data class PortableUsageRow(
     val eveningUsageSeconds: Long,
     val nightUsageSeconds: Long,
 )
+
+/** Local deletion boundary; deliberately excluded from usage exports and backups. */
+@Entity(tableName = "history_deletions")
+data class HistoryDeletionEntity(
+    @PrimaryKey val packageName: String,
+    val throughDate: String,
+)

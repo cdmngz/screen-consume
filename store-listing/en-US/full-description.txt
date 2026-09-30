@@ -27,3 +27,4 @@ Android Usage Access is required to calculate app usage summaries. It is granted
 
 Screen Consume is an independent open-source project. It is not affiliated with or endorsed by Google, Android, or Digital Wellbeing.
 
+History remains available after you uninstall a tracked app. Delete its usage history from app details; collection resumes the next day. Existing exports and backups remain unchanged.

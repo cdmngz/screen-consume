@@ -1,6 +1,6 @@
 # Screen Consume privacy policy
 
-**Last updated:** September 10, 2026
+**Last updated:** September 18, 2026
 
 **App:** Screen Consume
 
@@ -33,10 +33,11 @@ Usage history can reveal routines and interests. The database is not separately 
 
 ## Retention and deletion
 
-Recorded history has no automatic expiration. Android event retention and collection delays can leave gaps; installing the app cannot recover events Android no longer retains.
+Recorded history has no automatic expiration. Uninstalling a tracked app does not remove its recorded history. Collection retains saved daily records when Android returns missing or shorter usage snapshots. Android event retention and collection delays can leave gaps; installing the app cannot recover events Android no longer retains.
 
 - **Stop collection:** revoke Usage Access for Screen Consume in Android Settings. Existing summaries remain stored.
-- **Delete local data:** clear Screen Consume’s app storage in Android Settings, or uninstall it. There is currently no in-app selective deletion control.
+- **Delete one app’s history:** use **Delete usage history** in its details. This removes all its stored daily records and changes historical totals. Collection for that app resumes tomorrow. A local package-name and calendar-date deletion boundary prevents automatic recollection through the deletion day; it is not included in exports or backups. Explicitly restoring an older backup can bring deleted records back.
+- **Delete all local data:** clear Screen Consume’s app storage in Android Settings, or uninstall Screen Consume. This also removes deletion boundaries.
 - **Delete exported copies:** remove them separately from the destination you chose, including any cloud copies or provider backups. Clearing app storage does not remove those files.
 
 Deleting Screen Consume’s records does not delete the usage events retained independently by Android.

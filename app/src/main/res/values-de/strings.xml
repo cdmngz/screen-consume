@@ -22,11 +22,7 @@
     <string name="back_to_dashboard">Zurück zur Übersicht</string>
     <string name="no_app_usage_period">Für diese App wurde in diesem Zeitraum keine Nutzung erfasst.</string>
     <string name="usage_trend_chart_description">Täglicher Nutzungsverlauf mit auswählbaren Daten</string>
-    <string name="calendar">Kalender</string>
     <string name="calendar_chart_description">Nutzungskalender mit auswählbaren Daten</string>
-    <string name="collection_may_be_incomplete">Die Erfassung kann für einen Teil dieses Zeitraums unvollständig sein. Prüfe den Erfassungsstatus in den Einstellungen.</string>
-    <plurals name="streak_days"><item quantity="one">%1$d Tag</item><item quantity="other">%1$d Tage</item></plurals>
-    <string name="no_streaks">Keine Nutzungstage in diesem Zeitraum.</string>
     <string name="most_used_day">Tag mit der höchsten Nutzung</string>
     <string name="data_collection">Datenerfassung</string>
     <string name="collection_health">Erfassungsstatus</string>
@@ -41,18 +37,16 @@
     <string name="restore_json">JSON wiederherstellen</string>
     <string name="restore_encrypted_backup">Verschlüsselte Sicherung wiederherstellen</string>
     <string name="privacy">Datenschutz</string>
-    <string name="privacy_description">Der Nutzungsverlauf bleibt in dieser App, bis du ein Export- oder Sicherungsziel auswählst. Das Ziel kann Cloud-Speicher nutzen. Die App hat keine Konten, Analysefunktionen, Werbung oder Internetberechtigung. Die Datenschutzerklärung öffnet sich im Browser.</string>
+    <string name="privacy_description">Der Nutzungsverlauf bleibt in dieser App, bis du ein Export- oder Sicherungsziel auswählst. Das Ziel kann Cloud-Speicher nutzen. Die App hat keine Konten, Analysefunktionen, Werbung oder Internetberechtigung. Die Datenschutzerklärung öffnet sich im Browser. Der Verlauf deinstallierter Apps bleibt erhalten. Du kannst den Verlauf einer App in ihren Details löschen; die Erfassung beginnt morgen wieder.</string>
     <string name="open_privacy_policy">Datenschutzerklärung im Browser öffnen</string>
     <string name="backup_password">Sicherungspasswort</string>
     <string name="password">Passwort</string>
     <string name="continue_action">Weiter</string>
     <string name="cancel">Abbrechen</string>
     <string name="total_day_time">Gesamtzeit am Tag</string>
-    <string name="average_in_month">Durchschnitt im %1$s</string>
+    <string name="average_in_month">Durchschnitt %1$s</string>
     <string name="total_all_time">Gesamtzeit bisher</string>
     <string name="total_in_period">Gesamtzeit im Zeitraum: %1$s</string>
-    <string name="active_days">Aktive Tage</string>
-    <string name="top_consecutive_days">Längste Nutzungsserien</string>
     <string name="previous_period">Vorheriger Zeitraum</string>
     <string name="next_period">Nächster Zeitraum</string>
     <string name="hourly_usage_unavailable">Für diesen Tag sind keine stündlichen Nutzungsdaten verfügbar.</string>
@@ -72,7 +66,6 @@
     <string name="usage_more">%1$s mehr als im Zeitraum %2$s</string>
     <string name="usage_less">%1$s weniger als im Zeitraum %2$s</string>
     <string name="usage_same">Gleiche erfasste Nutzung wie im Zeitraum %2$s</string>
-    <string name="chart_tap_hint">Für Details auf einen Punkt tippen</string>
     <string name="less_than_minute">Weniger als 1 Min.</string>
     <string name="export_all_history">Gesamter Verlauf</string>
     <string name="select_date_range">Datumsbereich auswählen</string>
@@ -80,4 +73,13 @@
     <string name="clear_highlight">Aufheben</string>
     <string name="chart_selection">Diagrammauswahl</string>
     <string name="clear_search">Suche löschen</string>
+    <string name="delete_usage_history">Nutzungsverlauf löschen</string>
+    <string name="delete_usage_history_confirmation">Alle aufgezeichneten Nutzungsdaten für %1$s löschen? Dies ändert bisherige Gesamtsummen und kann nicht rückgängig gemacht werden. Die Erfassung für diese App beginnt morgen wieder. Vorhandene Exporte und Sicherungen werden nicht gelöscht; eine Wiederherstellung kann diesen Verlauf zurückbringen.</string>
+    <string name="history_deleted">Nutzungsverlauf gelöscht</string>
+    <string name="history_delete_failed">Der Nutzungsverlauf konnte nicht gelöscht werden. Versuche es erneut.</string>
+    <string name="average_active_day">Durchschnitt pro aktivem Tag</string>
+    <string name="more_options">Weitere Optionen</string>
+    <string name="options_expanded">Ausgeklappt</string>
+    <string name="options_collapsed">Eingeklappt</string>
+    <string name="loading_usage">Nutzungsdaten werden geladen…</string>
 </resources>
