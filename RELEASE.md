@@ -15,7 +15,7 @@ These workflows are inactive until committed to `main` and configured. This chan
 
 ### Play Console
 
-- Set up `org.screenconsume.app`, enroll in Play App Signing, complete listing/policy declarations and any required initial manual upload, and create the closed-testing track and tester group. Obtain its **API track ID**, which may be `alpha` or a custom ID; a display name is not necessarily the ID.
+- Set up `org.screenconsume.app`, enroll in Play App Signing, complete listing/policy declarations and any required initial manual upload, and create the closed-testing track and tester group. Obtain its **API track ID**, which may be `alpha` or a custom ID; a display name is not necessarily the ID. The pipeline rejects production, open-testing (`beta`), and internal-testing (`qa`/`internal`) track IDs, including form-factor variants.
 - Use a **separate upload key** registered with Play. The existing local release signing identity and its passwords must never enter GitHub Actions. Do not replace or regenerate that identity. If the existing upload certificate is the local identity, first arrange a separate upload key registration/reset in Play Console as an explicitly approved maintainer operation. Google continues to sign delivered apps with the established app signing key. The workflows only sign upload bundles.
 - Enable the Google Play Android Developer API in a Google Cloud project. Grant a dedicated service account app-scoped testing release permissions; use a separate account with production release permission for production. Do not grant access to usage data or unrelated apps. Keep account JSON private and rotate it under your credential policy.
 

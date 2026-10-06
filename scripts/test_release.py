@@ -46,6 +46,15 @@ class ReleaseTests(unittest.TestCase):
         track = {"releases": [{"versionCodes": ["10"], "status": "completed"}]}
         self.assertIsNotNone(play_release.completed_release(track, 10))
 
+    def test_closed_track_rejects_public_and_internal_targets(self):
+        for track in ('production', 'beta', 'qa', 'internal', 'wear:production', 'wear:beta', 'wear:qa'):
+            with patch.dict(os.environ, {'PLAY_CLOSED_TRACK': track}), \
+                 patch('play_release.Path.read_text', side_effect=[json.dumps(self.data), self.source]), \
+                 patch('play_release.token') as token, \
+                 self.assertRaisesRegex(ValueError, 'closed-testing track'):
+                play_release.publish('closed')
+            token.assert_not_called()
+
     def test_production_never_uploads_or_signs(self):
         calls = []
         track = {"track": "alpha", "releases": [

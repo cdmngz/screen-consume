@@ -100,7 +100,7 @@ def publish(mode):
     data = validate(json.loads(Path("release/current.json").read_text()),
                     Path("app/build.gradle.kts").read_text())
     closed = os.environ["PLAY_CLOSED_TRACK"]
-    if not closed or closed in {"production", "internal"}:
+    if not closed or closed.rsplit(":", 1)[-1] in {"production", "beta", "qa", "internal"}:
         raise ValueError("Configure an existing closed-testing track ID")
     access = token()
     edit = request(BASE + "/edits", "POST", {}, access)["id"]
