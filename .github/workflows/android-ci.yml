@@ -1,6 +1,12 @@
 name: Android CI
 
 on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Exact commit to validate (release automation checks this before building)
+        type: string
+        required: true
   push:
     branches: [main]
   pull_request:
@@ -20,6 +26,11 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      - name: Verify dispatched commit
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: test "$GITHUB_SHA" = "$EXPECTED_SHA"
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

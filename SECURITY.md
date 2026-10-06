@@ -50,7 +50,7 @@ For a manual source commit, review `git status --short` and the complete diff, i
 
 Use the established release identity so updates remain compatible. Never commit, upload, print, replace, or regenerate signing keys or credentials as part of routine work. Detailed repository rules are in [AGENTS.md](AGENTS.md#signing-and-secrets).
 
-`assembleRelease` produces an unsigned APK. Local release signing is a separate authorized maintainer step. The separate [Play release workflows](RELEASE.md) can sign AABs with a registered upload key and publish after an approved release merge and successful CI; production promotion requires manual dispatch. The existing local signing identity is never supplied to GitHub Actions. Environment secrets are available only to publication steps for trusted merged source, and production reuses the uploaded bundle.
+`assembleRelease` produces an unsigned APK. Local release signing is a separate authorized maintainer step. The separate [Play release workflows](RELEASE.md) can sign AABs with a registered upload key and publish after an owner/admin or maintainer dispatch, validated automatic release merge, and successful main CI; production promotion requires manual dispatch by an owner/admin or maintainer. The existing local signing identity is never supplied to GitHub Actions. Environment secrets are available only to publication steps for trusted merged source, and production reuses the uploaded bundle.
 
 Before distribution:
 
