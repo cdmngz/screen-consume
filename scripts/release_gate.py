@@ -60,10 +60,10 @@ def main():
                   for j in jobs["jobs"]), "Closed publication job did not succeed")
         # workflow_run head_sha describes the workflow revision, not necessarily the CI commit.
         # A publication receipt records the actual release SHA after Play commits successfully.
-        deployments = gh_list(f"repos/{repo}/deployments?environment=play-closed&per_page=100")
+        deployments = gh_list(f"repos/{repo}/deployments?environment=google-play-testing&per_page=100")
         matches = []
         for deployment in deployments:
-            if deployment.get("task") != "play-closed-release":
+            if deployment.get("task") != "google-play-testing-release":
                 continue
             statuses = gh_list(deployment["statuses_url"])
             if any(s["state"] == "success" and

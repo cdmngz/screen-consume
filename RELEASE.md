@@ -23,16 +23,16 @@ These workflows are inactive until committed to `main` and configured. This chan
 
 Enable **Allow GitHub Actions to create and approve pull requests** in repository Actions settings. The prepare workflow uses `GITHUB_TOKEN` to open PRs, never to approve or merge them. `main` requires PRs, all five Android CI checks, an up-to-date branch, and resolved review conversations, including for administrators. Force pushes and deletion are blocked. Ordinary PRs do not require another reviewer, so a solo maintainer can merge their own changes; the release gate separately requires human approval of the final release PR commit. Stale approvals are dismissed. Protect workflow/script changes with maintainer review. An approval on the final PR commit from the human repository owner (`cdmngz` for this personal repository) is also checked at deployment time; do not dismiss that review after publication if you intend to promote the release.
 
-Create environments **play-closed** and **play-production** restricted to `main`. Closed testing should have no required environment reviewer if it must run automatically after merge. Production may have a required reviewer as an extra safeguard; dispatch is already manual. Configure these environment variables/secrets:
+Create environments **google-play-testing** and **google-play-production** restricted to `main`. Closed testing should have no required environment reviewer if it must run automatically after merge. Production may have a required reviewer as an extra safeguard; dispatch is already manual. Configure these environment secrets:
 
 | Setting | Kind | Environment | Value |
 | --- | --- | --- | --- |
-| `PLAY_CLOSED_TRACK` | Variable | Both | Existing closed track API ID |
-| `PLAY_UPLOAD_CERT_SHA256` | Variable | play-closed | Registered upload certificate SHA-256 fingerprint |
-| `PLAY_UPLOAD_KEYSTORE_BASE64` | Secret | play-closed | Base64 of the separate upload keystore |
-| `PLAY_UPLOAD_KEY_ALIAS` | Secret | play-closed | Upload key alias |
-| `PLAY_UPLOAD_STORE_PASSWORD` | Secret | play-closed | Keystore password |
-| `PLAY_UPLOAD_KEY_PASSWORD` | Secret | play-closed | Key password |
+| `PLAY_CLOSED_TRACK` | Secret | Both | Existing closed track API ID |
+| `PLAY_UPLOAD_CERT_SHA256` | Secret | google-play-testing | Registered upload certificate SHA-256 fingerprint |
+| `PLAY_UPLOAD_KEYSTORE_BASE64` | Secret | google-play-testing | Base64 of the separate upload keystore |
+| `PLAY_UPLOAD_KEY_ALIAS` | Secret | google-play-testing | Upload key alias |
+| `PLAY_UPLOAD_STORE_PASSWORD` | Secret | google-play-testing | Keystore password |
+| `PLAY_UPLOAD_KEY_PASSWORD` | Secret | google-play-testing | Key password |
 | `PLAY_SERVICE_ACCOUNT_JSON` | Secret | Both | Dedicated environment's Google service account JSON |
 
 Never paste secrets into workflow inputs, commits, logs, issues, or PRs. Upload keys are decoded into owner-readable temporary files only during the signing step and removed afterwards. Passwords are passed to Java tools through environment lookup, not command-line values. Builds and ordinary PR CI do not receive release credentials. The upload certificate fingerprint and signed bundle certificate are checked before upload. CI signing leaves Gradle's normal unsigned release configuration unchanged.
