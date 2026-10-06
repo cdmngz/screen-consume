@@ -1,0 +1,93 @@
+name: Prepare release PR
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version increment
+        type: choice
+        options: [patch, minor, major]
+        default: patch
+        required: true
+      notes_en:
+        description: English (en-US) release notes; blank uses generic text
+        type: string
+      notes_es:
+        description: Spanish (es-ES) release notes; blank uses generic text
+        type: string
+      notes_de:
+        description: German (de-DE) release notes; blank uses generic text
+        type: string
+      notes_fr:
+        description: French (fr-FR) release notes; blank uses generic text
+        type: string
+      notes_it:
+        description: Italian (it-IT) release notes; blank uses generic text
+        type: string
+      notes_pt:
+        description: Portuguese (pt-PT) release notes; blank uses generic text
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prepare-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - name: Prepare version and localized notes
+        env:
+          BUMP: ${{ inputs.bump }}
+          NOTES_EN: ${{ inputs.notes_en }}
+          NOTES_ES: ${{ inputs.notes_es }}
+          NOTES_DE: ${{ inputs.notes_de }}
+          NOTES_FR: ${{ inputs.notes_fr }}
+          NOTES_IT: ${{ inputs.notes_it }}
+          NOTES_PT: ${{ inputs.notes_pt }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh pr list --state open --json headRefName --jq '[.[] | select(.headRefName | startswith("codex/release/"))] | length')" = 0
+          python3 scripts/release.py prepare --bump "$BUMP"
+          git diff --check
+      - name: Push branch and open PR for human approval
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version=$(python3 -c 'import json; print(json.load(open("release/current.json"))["versionName"])')
+          branch="codex/release/$version-$GITHUB_RUN_ID"
+          git checkout -b "$branch"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/build.gradle.kts release/current.json
+          git commit -m "Release $version"
+          # Supply credentials only to this push, without persisting them in git config.
+          auth=$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)
+          echo "::add-mask::$auth"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push origin "$branch"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path('release/current.json').read_text())
+          notes = '\n\n'.join(f'**{lang}**\n\n{text}' for lang, text in data['notes'].items())
+          Path('/tmp/release-pr.md').write_text(
+              f"Release {data['versionName']} (version code {data['versionCode']}).\n\n"
+              "Review and approve the final commit, then merge manually. Successful main CI "
+              "will publish the signed bundle to closed testing. Production requires a separate manual run.\n\n"
+              + notes + '\n')
+          PY
+          gh pr create --base main --head "$branch" --title "Release $version" --body-file /tmp/release-pr.md

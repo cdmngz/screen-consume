@@ -1,0 +1,57 @@
+name: Promote release to production
+
+on:
+  workflow_dispatch:
+    inputs:
+      closed_run_id:
+        description: Successful Release closed testing workflow run ID
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: play-release
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
+      deployments: read
+    outputs:
+      sha: ${{ steps.gate.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - id: gate
+        name: Verify successful closed publication and approved merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CLOSED_RUN_ID: ${{ inputs.closed_run_id }}
+        run: python3 scripts/release_gate.py production
+
+  promote:
+    needs: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: play-production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+          persist-credentials: false
+      - name: Promote the existing tested bundle to production
+        env:
+          PLAY_CLOSED_TRACK: ${{ vars.PLAY_CLOSED_TRACK }}
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: python3 scripts/play_release.py production

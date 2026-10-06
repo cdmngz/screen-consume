@@ -1,0 +1,53 @@
+name: Dependabot minor auto-merge
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dependabot-auto-merge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  auto-merge:
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # Never check out or execute PR code in this privileged workflow.
+      - name: Verify Dependabot commits and read update metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
+        with:
+          github-token: ${{ github.token }}
+      - name: Queue only minor updates behind branch protection
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          METADATA_OK: ${{ steps.metadata.outcome == 'success' }}
+          UPDATES: ${{ steps.metadata.outputs.updated-dependencies-json }}
+        run: |
+          set -euo pipefail
+          if [ "$METADATA_OK" = true ] && printf '%s' "$UPDATES" | jq -e '
+            type == "array" and length > 0 and all(.[];
+              .updateType == "version-update:semver-minor" and .targetBranch == "main"
+              and (.packageEcosystem == "gradle" or .packageEcosystem == "github_actions"))
+          ' >/dev/null; then
+            gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --auto --squash --match-head-commit "$HEAD_SHA"
+          else
+            # Remove any previous auto-merge request if a rebase/update becomes ineligible.
+            gh pr merge "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --disable-auto
+            echo 'Manual merge required: every dependency must be a verified minor update.'
+          fi

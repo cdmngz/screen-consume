@@ -67,7 +67,7 @@ Run checks proportional to the change:
 
 ## Dependencies and GitHub security
 
-- Keep dependency changes narrow and human-reviewed; never enable automatic merging.
+- Keep dependency changes narrow. Per the maintainer’s explicit authorization, verified Dependabot PRs containing only semantic minor updates may auto-merge after required CI and branch protection pass. Patch, major, unknown, and mixed update types require human review and manual merging. Never auto-merge other PRs.
 - Review release notes, advisories, and the resolved graph. Coordinate Gradle, Android Gradle Plugin, Kotlin, KSP, and Compose tooling upgrades.
 - Room 2.8.5 is the currently validated version. A clean build with schema export enabled and connected migration tests succeeded on September 30, 2026; review the committed schema and rerun a clean build when upgrading it again.
 - Keep the wrapper distribution checksum synchronized with Gradle's official checksum. Do not casually generate dependency locks or verification metadata; introduce them only in a dedicated reviewed change.

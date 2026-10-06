@@ -1,0 +1,97 @@
+name: Release closed testing
+
+on:
+  workflow_run:
+    workflows: [Android CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: play-release
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      release: ${{ steps.gate.outputs.release }}
+      sha: ${{ steps.gate.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - id: gate
+        name: Verify merged approved release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release_gate.py closed
+
+  publish:
+    name: Publish closed testing
+    needs: gate
+    if: needs.gate.outputs.release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: play-closed
+    permissions:
+      contents: read
+      deployments: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.gate.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - name: Recheck and build exact merged commit without signing credentials
+        run: |
+          set -euo pipefail
+          python3 scripts/release.py validate
+          python3 -B -m unittest discover -s scripts -p 'test_*.py'
+          ./gradlew testDebugUnitTest lintDebug lintRelease :app:detektDebug :app:detektRelease assembleDebug assembleRelease bundleRelease --no-daemon
+          python3 scripts/check_release_security.py
+      - name: Sign with registered upload key and submit to closed testing
+        env:
+          PLAY_CLOSED_TRACK: ${{ vars.PLAY_CLOSED_TRACK }}
+          PLAY_UPLOAD_CERT_SHA256: ${{ vars.PLAY_UPLOAD_CERT_SHA256 }}
+          PLAY_UPLOAD_KEYSTORE_BASE64: ${{ secrets.PLAY_UPLOAD_KEYSTORE_BASE64 }}
+          PLAY_UPLOAD_KEY_ALIAS: ${{ secrets.PLAY_UPLOAD_KEY_ALIAS }}
+          PLAY_UPLOAD_STORE_PASSWORD: ${{ secrets.PLAY_UPLOAD_STORE_PASSWORD }}
+          PLAY_UPLOAD_KEY_PASSWORD: ${{ secrets.PLAY_UPLOAD_KEY_PASSWORD }}
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+        run: python3 scripts/play_release.py closed
+      - name: Record successful publication for production gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_SHA: ${{ needs.gate.outputs.sha }}
+        run: |
+          set -euo pipefail
+          python3 - <<'PYTHON'
+          import json, os
+          from pathlib import Path
+          Path('/tmp/deployment.json').write_text(json.dumps({
+              'ref': os.environ['RELEASE_SHA'], 'environment': 'play-closed',
+              'task': 'play-closed-release', 'auto_merge': False, 'required_contexts': [],
+              'transient_environment': False, 'production_environment': False}))
+          PYTHON
+          deployment=$(gh api --method POST "repos/$GITHUB_REPOSITORY/deployments" \
+            --input /tmp/deployment.json --jq .id)
+          gh api --method POST "repos/$GITHUB_REPOSITORY/deployments/$deployment/statuses" \
+            -f state=success -F auto_inactive=false \
+            -f log_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
