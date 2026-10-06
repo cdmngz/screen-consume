@@ -50,7 +50,7 @@ For a manual source commit, review `git status --short` and the complete diff, i
 
 Use the established release identity so updates remain compatible. Never commit, upload, print, replace, or regenerate signing keys or credentials as part of routine work. Detailed repository rules are in [AGENTS.md](AGENTS.md#signing-and-secrets).
 
-`assembleRelease` produces an unsigned APK. Release signing is a separate authorized maintainer step; CI does not sign or publish.
+`assembleRelease` produces an unsigned APK. Local release signing is a separate authorized maintainer step. The separate [Play release workflows](RELEASE.md) can sign AABs with a registered upload key and publish after an approved release merge and successful CI; production promotion requires manual dispatch. The existing local signing identity is never supplied to GitHub Actions. Environment secrets are available only to publication steps for trusted merged source, and production reuses the uploaded bundle.
 
 Before distribution:
 
@@ -59,4 +59,4 @@ Before distribution:
 3. Verify the final certificate, permissions, exported components, non-debuggable state, and absence of debug-only components.
 4. Record the final APK SHA-256 through the release channel.
 
-Dependency updates require human review. CI actions are pinned to commit SHAs and use explicit minimal permissions; do not expose signing material or other secrets to untrusted code.
+Verified Dependabot PRs containing only semantic minor updates may auto-merge after the required Android CI checks and branch protection pass. Patch, major, unknown, and mixed update types require manual review and merge. The metadata workflow does not check out or execute PR code and does not receive release secrets. CI actions are pinned to commit SHAs and use explicit minimal permissions; do not expose signing material or other secrets to untrusted code.

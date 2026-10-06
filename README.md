@@ -51,7 +51,7 @@ The release APK is `app/build/outputs/apk/release/app-release-unsigned.apk`. Fol
 
 JVM tests cover aggregation, analytics, portability, and chart/range calculations. Connected tests cover Room behavior. These do not constitute a complete UI, accessibility, OEM, or security audit. Optional coverage generation uses `./gradlew createDebugUnitTestCoverageReport`; reports are under `app/build/reports/`.
 
-[Android CI](.github/workflows/android-ci.yml) runs separate jobs for JVM tests, Android lint, unused Kotlin code (Detekt), debug/release APK and bundle builds, and release privacy/security checks on pushes and pull requests to `main`. Jobs run in that order; a failure skips all remaining jobs. The test job also checks committed patch formatting. Its runners use Temurin 17; local validation uses Android Studio’s JBR. CI does not run connected tests, sign releases, or publish the app. [Dependabot](.github/dependabot.yml) proposes dependency updates for human review.
+[Android CI](.github/workflows/android-ci.yml) runs separate jobs for JVM tests, Android lint, unused Kotlin code (Detekt), debug/release APK and bundle builds, and release privacy/security checks on pushes and pull requests to `main`. Jobs run in that order; a failure skips all remaining jobs. The test job also checks committed patch formatting. Its runners use Temurin 17; local validation uses Android Studio’s JBR. Android CI does not run connected tests, sign releases, or publish the app. Separate [release workflows](RELEASE.md) prepare a manually approved version PR, publish its merged bundle to closed testing after CI, and manually promote the tested version to production. Publishing requires environment credentials and a separate registered Play upload key. [Dependabot](.github/dependabot.yml) proposes dependency updates. The [minor auto-merge workflow](.github/workflows/dependabot-auto-merge.yml) verifies Dependabot commits and queues only PRs where every dependency is a semantic minor update; required CI and `main` protection still apply. Patch, major, unknown, and mixed updates remain manual.
 
 ## Architecture
 
@@ -76,6 +76,7 @@ The worker requests execution every six hours and reaggregates today and the pre
 - [PRIVACY.md](PRIVACY.md): user-facing data practices and deletion instructions.
 - [SECURITY.md](SECURITY.md): vulnerability reporting, safeguards and known limits.
 - [AGENTS.md](AGENTS.md): repository change and verification rules.
+- [RELEASE.md](RELEASE.md): release workflows and required GitHub/Play setup.
 - [Store listing](store-listing/README.md): listing copy, graphics and screenshot preparation.
 
 Existing screenshots are working assets, not evidence that every current screen has been reviewed. Check them against the current build before publishing.
