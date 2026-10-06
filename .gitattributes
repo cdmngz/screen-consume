@@ -1,0 +1,2 @@
+# The official Windows wrapper uses CRLF; keep other whitespace checks enabled.
+gradlew.bat whitespace=cr-at-eol

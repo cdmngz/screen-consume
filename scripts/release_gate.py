@@ -4,11 +4,17 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from urllib.parse import quote
 from release import bumped, validate, version
 
 
 def gh(path):
     return json.loads(subprocess.check_output(["gh", "api", path]))
+
+
+def gh_list(path):
+    pages = json.loads(subprocess.check_output(["gh", "api", "--paginate", "--slurp", path]))
+    return [item for page in pages for item in page]
 
 
 def check(condition, message):
@@ -17,17 +23,24 @@ def check(condition, message):
 
 
 def approved(pr, repo):
-    reviews = gh(f"repos/{repo}/pulls/{pr['number']}/reviews?per_page=100")
+    reviews = gh_list(f"repos/{repo}/pulls/{pr['number']}/reviews?per_page=100")
     # Only the latest decisive review from each reviewer counts.
     latest = {}
     for review in reviews:
         if review["state"] in {"APPROVED", "CHANGES_REQUESTED", "DISMISSED"}:
             latest[review["user"]["login"]] = review
-    check(any(r["state"] == "APPROVED" and r["commit_id"] == pr["head"]["sha"]
-              and r["user"].get("type") == "User"
-              for r in latest.values()), "Release needs approval of its final PR commit")
     check(not any(r["state"] == "CHANGES_REQUESTED" for r in latest.values()),
           "Release has outstanding change requests")
+    approvers = [r["user"]["login"] for r in latest.values()
+                 if r["state"] == "APPROVED" and r["commit_id"] == pr["head"]["sha"]
+                 and r["user"].get("type") == "User"]
+    trusted = False
+    for login in approvers:
+        permission = gh(f"repos/{repo}/collaborators/{quote(login, safe='')}/permission")
+        if permission.get("permission") in {"write", "maintain", "admin"}:
+            trusted = True
+            break
+    check(trusted, "Release needs maintainer approval of its final PR commit")
 
 
 def main():
@@ -51,18 +64,18 @@ def main():
                   for j in jobs["jobs"]), "Closed publication job did not succeed")
         # workflow_run head_sha describes the workflow revision, not necessarily the CI commit.
         # A publication receipt records the actual release SHA after Play commits successfully.
-        deployments = gh(f"repos/{repo}/deployments?environment=play-closed&per_page=100")
+        deployments = gh_list(f"repos/{repo}/deployments?environment=play-closed&per_page=100")
         matches = []
         for deployment in deployments:
             if deployment.get("task") != "play-closed-release":
                 continue
-            statuses = gh(deployment["statuses_url"])
+            statuses = gh_list(deployment["statuses_url"])
             if any(s["state"] == "success" and
                    s.get("log_url", "").endswith(f"/actions/runs/{run_id}") for s in statuses):
                 matches.append(deployment)
         check(len(matches) == 1, "Expected exactly one successful closed deployment for this run")
         sha = matches[0]["sha"]
-    prs = gh(f"repos/{repo}/commits/{sha}/pulls?per_page=100")
+    prs = gh_list(f"repos/{repo}/commits/{sha}/pulls?per_page=100")
     prs = [p for p in prs if p.get("merged_at") and p["merge_commit_sha"] == sha
            and p["base"]["ref"] == "main" and p["head"]["repo"]
            and p["head"]["repo"]["full_name"] == repo

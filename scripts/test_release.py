@@ -92,23 +92,30 @@ class GateTests(unittest.TestCase):
                        "user": {"login": "owner", "type": "User"}}
 
     def test_approval_of_final_commit_required(self):
-        with patch('release_gate.gh', return_value=[self.review]):
+        with patch('release_gate.gh_list', return_value=[self.review]), \
+             patch('release_gate.gh', return_value={'permission': 'write'}):
             release_gate.approved(self.pr, 'owner/repo')
         self.review['commit_id'] = 'old'
-        with patch('release_gate.gh', return_value=[self.review]), self.assertRaises(ValueError):
+        with patch('release_gate.gh_list', return_value=[self.review]), self.assertRaises(ValueError):
+            release_gate.approved(self.pr, 'owner/repo')
+
+    def test_outside_reviewer_cannot_authorize_release(self):
+        with patch('release_gate.gh_list', return_value=[self.review]), \
+             patch('release_gate.gh', return_value={'permission': 'read'}), \
+             self.assertRaisesRegex(ValueError, 'maintainer approval'):
             release_gate.approved(self.pr, 'owner/repo')
 
     def test_bot_and_dismissed_approvals_rejected(self):
         for state, user_type in [('APPROVED', 'Bot'), ('DISMISSED', 'User')]:
             self.review['state'] = state
             self.review['user']['type'] = user_type
-            with patch('release_gate.gh', return_value=[self.review]), self.assertRaises(ValueError):
+            with patch('release_gate.gh_list', return_value=[self.review]), self.assertRaises(ValueError):
                 release_gate.approved(self.pr, 'owner/repo')
 
     def test_later_change_request_supersedes_approval(self):
         changed = copy.deepcopy(self.review)
         changed['state'] = 'CHANGES_REQUESTED'
-        with patch('release_gate.gh', return_value=[self.review, changed]), self.assertRaises(ValueError):
+        with patch('release_gate.gh_list', return_value=[self.review, changed]), self.assertRaises(ValueError):
             release_gate.approved(self.pr, 'owner/repo')
 
     def test_production_requires_successful_publication_job(self):
