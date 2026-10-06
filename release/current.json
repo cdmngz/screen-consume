@@ -1,0 +1,13 @@
+{
+  "versionName": "1.7.1",
+  "versionCode": 10,
+  "bump": "patch",
+  "notes": {
+    "en-US": "Bug fixes and improvements.",
+    "es-ES": "Correcciones de errores y mejoras.",
+    "de-DE": "Fehlerbehebungen und Verbesserungen.",
+    "fr-FR": "Corrections de bugs et améliorations.",
+    "it-IT": "Correzioni di errori e miglioramenti.",
+    "pt-PT": "Correções de erros e melhorias."
+  }
+}
