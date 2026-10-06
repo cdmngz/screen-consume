@@ -71,6 +71,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.graphics.drawable.toBitmap
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import org.screenconsume.app.R
+import org.screenconsume.app.BuildConfig
 import org.screenconsume.app.domain.model.DateRange
 import org.screenconsume.app.domain.model.AppUsage
 import org.screenconsume.app.domain.model.DayUsage
@@ -1250,6 +1251,14 @@ private fun SettingsScreen(state: MainUiState, viewModel: MainViewModel, onBack:
             OutlinedButton(onClick = { uriHandler.openUri("https://github.com/cdmngz/screen-consume/blob/main/PRIVACY.md") }) {
                 Text(stringResource(R.string.open_privacy_policy))
             }
+        }
+        item { HorizontalDivider() }
+        item {
+            Text(
+                stringResource(R.string.app_version, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
     if (selectingExportRange) ExportRangeDialog(
