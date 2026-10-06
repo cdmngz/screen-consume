@@ -101,17 +101,16 @@ class GateTests(unittest.TestCase):
                        "user": {"login": "owner", "type": "User"}}
 
     def test_approval_of_final_commit_required(self):
-        with patch('release_gate.gh_list', return_value=[self.review]), \
-             patch('release_gate.gh', return_value={'permission': 'write'}):
+        with patch('release_gate.gh_list', return_value=[self.review]):
             release_gate.approved(self.pr, 'owner/repo')
         self.review['commit_id'] = 'old'
         with patch('release_gate.gh_list', return_value=[self.review]), self.assertRaises(ValueError):
             release_gate.approved(self.pr, 'owner/repo')
 
     def test_outside_reviewer_cannot_authorize_release(self):
+        self.review['user']['login'] = 'outsider'
         with patch('release_gate.gh_list', return_value=[self.review]), \
-             patch('release_gate.gh', return_value={'permission': 'read'}), \
-             self.assertRaisesRegex(ValueError, 'maintainer approval'):
+             self.assertRaisesRegex(ValueError, 'repository-owner approval'):
             release_gate.approved(self.pr, 'owner/repo')
 
     def test_bot_and_dismissed_approvals_rejected(self):

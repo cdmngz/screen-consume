@@ -4,7 +4,6 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from urllib.parse import quote
 from release import bumped, validate, version
 
 
@@ -34,13 +33,10 @@ def approved(pr, repo):
     approvers = [r["user"]["login"] for r in latest.values()
                  if r["state"] == "APPROVED" and r["commit_id"] == pr["head"]["sha"]
                  and r["user"].get("type") == "User"]
-    trusted = False
-    for login in approvers:
-        permission = gh(f"repos/{repo}/collaborators/{quote(login, safe='')}/permission")
-        if permission.get("permission") in {"write", "maintain", "admin"}:
-            trusted = True
-            break
-    check(trusted, "Release needs maintainer approval of its final PR commit")
+    # This personal repository's owner is the explicitly required release approver.
+    # Avoid privileged collaborator lookups in a read-only gate.
+    check(repo.split("/", 1)[0] in approvers,
+          "Release needs repository-owner approval of its final PR commit")
 
 
 def main():
