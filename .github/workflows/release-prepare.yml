@@ -43,11 +43,19 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+    outputs:
+      branch: ${{ steps.pr.outputs.branch }}
+      sha: ${{ steps.pr.outputs.sha }}
+      pr: ${{ steps.pr.outputs.pr }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: main
+          ref: ${{ github.sha }}
           persist-credentials: false
+      - name: Authorize admin or maintainer (including reruns)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release_automation.py operator
       - name: Prepare version and localized notes
         env:
           BUMP: ${{ inputs.bump }}
@@ -63,7 +71,8 @@ jobs:
           test "$(gh pr list --state open --json headRefName --jq '[.[] | select(.headRefName | startswith("codex/release/"))] | length')" = 0
           python3 scripts/release.py prepare --bump "$BUMP"
           git diff --check
-      - name: Push branch and open PR for human approval
+      - id: pr
+        name: Push branch and open authorized release PR
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -86,8 +95,71 @@ jobs:
           notes = '\n\n'.join(f'**{lang}**\n\n{text}' for lang, text in data['notes'].items())
           Path('/tmp/release-pr.md').write_text(
               f"Release {data['versionName']} (version code {data['versionCode']}).\n\n"
-              "Review and approve the final commit, then merge manually. Successful main CI "
-              "will publish the signed bundle to closed testing. Production requires a separate manual run.\n\n"
+              "An admin or maintainer authorized this release by running Prepare release PR. "
+              "Successful CI automatically merges this exact release commit and launches main CI "
+              "to publish to closed testing. Production requires a separate manual run.\n\n"
               + notes + '\n')
           PY
-          gh pr create --base main --head "$branch" --title "Release $version" --body-file /tmp/release-pr.md
+          pr_url=$(gh pr create --base main --head "$branch" --title "Release $version" --body-file /tmp/release-pr.md)
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "pr=${pr_url##*/}" >> "$GITHUB_OUTPUT"
+
+  validate:
+    name: Validate prepared release
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    permissions:
+      contents: read
+      actions: write
+    outputs:
+      ci_run_id: ${{ steps.ci.outputs.ci_run_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - id: ci
+        name: Dispatch Android CI and wait for all required checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREPARED_SHA: ${{ needs.prepare.outputs.sha }}
+          PREPARED_BRANCH: ${{ needs.prepare.outputs.branch }}
+        run: python3 scripts/release_automation.py ci
+
+  merge:
+    name: Merge validated release and launch main CI
+    needs: [prepare, validate]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PREPARED_SHA: ${{ needs.prepare.outputs.sha }}
+      PREPARED_BRANCH: ${{ needs.prepare.outputs.branch }}
+      PREPARED_PR: ${{ needs.prepare.outputs.pr }}
+      PREPARED_CI_RUN_ID: ${{ needs.validate.outputs.ci_run_id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - id: merge
+        name: Recheck authorization and merge exact release without bypass
+        run: python3 scripts/release_automation.py merge
+      - name: Save authorization for the exact merged commit
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-authorization
+          path: release-authorization.json
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 90
+      - name: Dispatch main CI (token merges do not trigger push workflows)
+        env:
+          MERGED_SHA: ${{ steps.merge.outputs.sha }}
+        run: python3 scripts/release_automation.py main-ci

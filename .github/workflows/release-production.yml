@@ -34,7 +34,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - id: gate
-        name: Verify successful closed publication and approved merge
+        name: Authorize maintainer and verify successful closed publication
         env:
           GH_TOKEN: ${{ github.token }}
           CLOSED_RUN_ID: ${{ inputs.closed_run_id }}
@@ -50,6 +50,10 @@ jobs:
         with:
           ref: ${{ needs.gate.outputs.sha }}
           persist-credentials: false
+      - name: Restrict promotion reruns to admins and maintainers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release_automation.py operator
       - name: Promote the existing tested bundle to production
         env:
           PLAY_CLOSED_TRACK: ${{ secrets.PLAY_CLOSED_TRACK }}

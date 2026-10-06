@@ -95,36 +95,25 @@ class ReleaseTests(unittest.TestCase):
 
 
 class GateTests(unittest.TestCase):
-    def setUp(self):
-        self.pr = {"number": 7, "head": {"sha": "final"}}
-        self.review = {"state": "APPROVED", "commit_id": "final",
-                       "user": {"login": "owner", "type": "User"}}
+    def test_only_admins_and_maintainers_can_authorize(self):
+        for role in ('admin', 'maintain'):
+            with patch('release_gate.gh', return_value={
+                    'role_name': role, 'permission': 'write', 'user': {'type': 'User'}}):
+                release_gate.maintainer('owner/repo', 'owner')
+        for role in ('write', 'read', 'triage', 'none', 'custom'):
+            with patch('release_gate.gh', return_value={
+                    'role_name': role, 'user': {'type': 'User'}}), self.assertRaises(ValueError):
+                release_gate.maintainer('owner/repo', 'outsider')
+        with patch('release_gate.gh', return_value={
+                'role_name': 'admin', 'user': {'type': 'Bot'}}), self.assertRaises(ValueError):
+            release_gate.maintainer('owner/repo', 'bot')
 
-    def test_approval_of_final_commit_required(self):
-        with patch('release_gate.gh_list', return_value=[self.review]):
-            release_gate.approved(self.pr, 'owner/repo')
-        self.review['commit_id'] = 'old'
-        with patch('release_gate.gh_list', return_value=[self.review]), self.assertRaises(ValueError):
-            release_gate.approved(self.pr, 'owner/repo')
-
-    def test_outside_reviewer_cannot_authorize_release(self):
-        self.review['user']['login'] = 'outsider'
-        with patch('release_gate.gh_list', return_value=[self.review]), \
-             self.assertRaisesRegex(ValueError, 'repository-owner approval'):
-            release_gate.approved(self.pr, 'owner/repo')
-
-    def test_bot_and_dismissed_approvals_rejected(self):
-        for state, user_type in [('APPROVED', 'Bot'), ('DISMISSED', 'User')]:
-            self.review['state'] = state
-            self.review['user']['type'] = user_type
-            with patch('release_gate.gh_list', return_value=[self.review]), self.assertRaises(ValueError):
-                release_gate.approved(self.pr, 'owner/repo')
-
-    def test_later_change_request_supersedes_approval(self):
-        changed = copy.deepcopy(self.review)
-        changed['state'] = 'CHANGES_REQUESTED'
-        with patch('release_gate.gh_list', return_value=[self.review, changed]), self.assertRaises(ValueError):
-            release_gate.approved(self.pr, 'owner/repo')
+    def test_reruns_require_authorized_triggering_actor(self):
+        with patch.dict(os.environ, {'GITHUB_RUN_ATTEMPT': '2', 'GITHUB_REPOSITORY': 'owner/repo',
+                                     'GITHUB_TRIGGERING_ACTOR': 'writer'}), \
+             patch('release_gate.gh', return_value={
+                 'role_name': 'write', 'user': {'type': 'User'}}), self.assertRaises(ValueError):
+            release_gate.rerun_operator()
 
     def test_production_requires_successful_publication_job(self):
         run = {'conclusion': 'success', 'event': 'workflow_run', 'head_branch': 'main',
@@ -133,8 +122,11 @@ class GateTests(unittest.TestCase):
             event = Path(directory) / 'event.json'
             event.write_text('{}')
             with patch.dict(os.environ, {'GITHUB_REPOSITORY': 'owner/repo',
-                                         'GITHUB_EVENT_PATH': str(event), 'CLOSED_RUN_ID': '12'}), \
+                                         'GITHUB_EVENT_PATH': str(event), 'CLOSED_RUN_ID': '12',
+                                         'GITHUB_RUN_ATTEMPT': '1', 'GITHUB_REF': 'refs/heads/main',
+                                         'GITHUB_ACTOR': 'owner', 'GITHUB_TRIGGERING_ACTOR': 'owner'}), \
                  patch('sys.argv', ['release_gate.py', 'production']), \
+                 patch('release_gate.maintainer'), \
                  patch('release_gate.gh', side_effect=[run, {'jobs': [
                      {'name': 'Publish closed testing', 'conclusion': 'skipped'}]}]), \
                  self.assertRaisesRegex(ValueError, 'did not succeed'):

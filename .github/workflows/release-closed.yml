@@ -17,13 +17,14 @@ jobs:
   gate:
     if: >-
       github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.event == 'push' &&
+      (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch') &&
       github.event.workflow_run.head_repository.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: read
       pull-requests: read
+      actions: read
     outputs:
       release: ${{ steps.gate.outputs.release }}
       sha: ${{ steps.gate.outputs.sha }}
@@ -34,7 +35,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - id: gate
-        name: Verify merged approved release PR
+        name: Verify exact maintainer-authorized release
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/release_gate.py closed
@@ -59,6 +60,10 @@ jobs:
           distribution: temurin
           java-version: '17'
       - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - name: Restrict publication reruns to admins and maintainers
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release_gate.py rerun
       - name: Recheck and build exact merged commit without signing credentials
         run: |
           set -euo pipefail
