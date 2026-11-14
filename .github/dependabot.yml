@@ -9,7 +9,9 @@ updates:
       time: "06:00"
       timezone: "Europe/Madrid"
     target-branch: "main"
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 4
+    assignees:
+      - "cdmngz"
     commit-message:
       prefix: "deps"
 
@@ -21,7 +23,9 @@ updates:
       time: "06:00"
       timezone: "Europe/Madrid"
     target-branch: "main"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 6
+    assignees:
+      - "cdmngz"
     commit-message:
       prefix: "deps"
     groups:
