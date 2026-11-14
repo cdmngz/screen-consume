@@ -64,13 +64,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: python3 scripts/release_gate.py rerun
-      - name: Recheck and build exact merged commit without signing credentials
-        run: |
-          set -euo pipefail
-          python3 scripts/release.py validate
-          python3 -B -m unittest discover -s scripts -p 'test_*.py'
-          ./gradlew testDebugUnitTest lintDebug lintRelease :app:detektDebug :app:detektRelease assembleDebug assembleRelease bundleRelease --no-daemon
-          python3 scripts/check_release_security.py
+      - name: Build unsigned release bundle from the validated commit
+        run: ./gradlew bundleRelease --no-daemon
       - name: Sign with registered upload key and submit to closed testing
         env:
           PLAY_CLOSED_TRACK: ${{ secrets.PLAY_CLOSED_TRACK }}
