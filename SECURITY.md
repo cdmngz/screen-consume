@@ -59,4 +59,4 @@ Before distribution:
 3. Verify the final certificate, permissions, exported components, non-debuggable state, and absence of debug-only components.
 4. Record the final APK SHA-256 through the release channel.
 
-Verified Dependabot PRs containing only semantic minor updates may auto-merge after the required Android CI checks and branch protection pass. Patch, major, unknown, and mixed update types require manual review and merge. The metadata workflow does not check out or execute PR code and does not receive release secrets. CI actions are pinned to commit SHAs and use explicit minimal permissions; do not expose signing material or other secrets to untrusted code.
+Dependabot PRs require manual review and merge after required Android CI checks and branch protection pass. CI actions are pinned to commit SHAs and use explicit minimal permissions; do not expose signing material or other secrets to untrusted code.
