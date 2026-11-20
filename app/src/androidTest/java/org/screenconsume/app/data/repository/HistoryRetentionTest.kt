@@ -19,6 +19,47 @@ import java.time.LocalDate
 
 @RunWith(AndroidJUnit4::class)
 class HistoryRetentionTest {
+    @Test fun recentCollectionFillsMissingDaysWithoutDuplicatingToday() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, ScreenConsumeDatabase::class.java).build()
+        try {
+            val repository = UsageRepository(context, db, SnapshotSource(), AppPreferences(context))
+            val today = LocalDate.of(2026, 9, 10)
+            repository.aggregate(today)
+            repository.aggregateRecentDays(today)
+
+            val dao = db.usageDao()
+            for (daysAgo in 0L..2L) {
+                val date = today.minusDays(daysAgo).toString()
+                assertEquals(60L, dao.portableRows(date, date).single().usageSeconds)
+            }
+            val olderDate = today.minusDays(3).toString()
+            assertEquals(emptyList<Any>(), dao.portableRows(olderDate, olderDate))
+        } finally {
+            db.close()
+        }
+    }
+
+    @Test fun recentCollectionDoesNotReadEventsWithoutUsageAccess() = runBlocking {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = Room.inMemoryDatabaseBuilder(context, ScreenConsumeDatabase::class.java).build()
+        try {
+            val source = object : UsageDataSource {
+                override fun hasUsageAccess() = false
+
+                override fun read(beginMillis: Long, endMillis: Long): UsageSnapshot =
+                    error("Usage events must not be read without usage access")
+            }
+            val repository = UsageRepository(context, db, source, AppPreferences(context))
+            val today = LocalDate.of(2026, 9, 10)
+            repository.aggregateRecentDays(today)
+
+            assertEquals(emptyList<Any>(), db.usageDao().portableRows(today.minusDays(2).toString(), today.toString()))
+        } finally {
+            db.close()
+        }
+    }
+
     @Test fun missingAndShorterSnapshotsRetainHistoryAndRetriesDoNotDuplicate() = runBlocking {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db = Room.inMemoryDatabaseBuilder(context, ScreenConsumeDatabase::class.java).build()

@@ -41,6 +41,13 @@ class UsageRepository(
     val lastSuccessfulAggregationMillis = preferences.lastSuccessfulAggregationMillis
     val earliestDate: Flow<LocalDate?> = database.usageDao().observeEarliestDate().map { it?.let(LocalDate::parse) }
 
+    suspend fun aggregateRecentDays(today: LocalDate = LocalDate.now()) = withContext(Dispatchers.IO) {
+        // Revisit recent days after delayed or interrupted background collection.
+        for (daysAgo in 0L..2L) {
+            aggregate(today.minusDays(daysAgo))
+        }
+    }
+
     suspend fun aggregate(date: LocalDate) {
         val zone = ZoneId.systemDefault()
         val start = date.atStartOfDay(zone).toInstant().toEpochMilli()
