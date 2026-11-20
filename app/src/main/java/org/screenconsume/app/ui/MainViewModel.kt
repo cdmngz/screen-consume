@@ -175,7 +175,7 @@ class MainViewModel(private val repository: UsageRepository) : ViewModel() {
             refreshState.value = RefreshState(running = true)
             viewModelScope.launch {
                 try {
-                    repository.aggregate(LocalDate.now())
+                    repository.aggregateRecentDays()
                     historyRevision.update { it + 1 }
                     refreshState.value = RefreshState()
                 } catch (cancelled: CancellationException) {
