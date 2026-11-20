@@ -1,4 +1,6 @@
+import dev.detekt.gradle.Detekt
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.tasks.KotlinJvmCompile
 
 plugins {
     id("dev.detekt")
@@ -106,4 +108,18 @@ detekt {
     toolVersion = "2.0.0-alpha.6"
     config.setFrom(rootProject.file("config/detekt.yml"))
     buildUponDefaultConfig = false
+}
+
+// Work around detekt/detekt#9402: include generated Java classes with AGP's built-in Kotlin.
+tasks.withType<Detekt>().configureEach {
+    if (name == "detektDebug" || name == "detektRelease") {
+        val variant = name.removePrefix("detekt")
+        val kotlinCompile = tasks.named<KotlinJvmCompile>("compile${variant}Kotlin")
+        val javaCompile = tasks.named<JavaCompile>("compile${variant}JavaWithJavac")
+        classpath.setFrom(
+            kotlinCompile.map { it.libraries },
+            kotlinCompile.flatMap { it.destinationDirectory },
+            javaCompile.flatMap { it.destinationDirectory },
+        )
+    }
 }
