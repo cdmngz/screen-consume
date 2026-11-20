@@ -28,18 +28,33 @@ updates:
       - "cdmngz"
     commit-message:
       prefix: "deps"
+    cooldown:
+      default-days: 14
+      include:
+        - "com.android.application"
+        - "org.jetbrains.kotlin.android"
+        - "org.jetbrains.kotlin.plugin.compose"
+        - "com.google.devtools.ksp"
     groups:
+      room:
+        patterns:
+          - "androidx.room:*"
       androidx:
         patterns:
           - "androidx.*"
+        exclude-patterns:
+          - "androidx.room:*"
         update-types:
           - "minor"
           - "patch"
       kotlin-and-ksp:
         patterns:
-          - "org.jetbrains.kotlin*"
-          - "org.jetbrains.kotlinx*"
+          - "org.jetbrains.kotlin.android"
+          - "org.jetbrains.kotlin.plugin.compose"
           - "com.google.devtools.ksp"
         update-types:
           - "minor"
           - "patch"
+      coroutines:
+        patterns:
+          - "org.jetbrains.kotlinx:kotlinx-coroutines-*"
