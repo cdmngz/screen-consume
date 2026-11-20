@@ -3,6 +3,7 @@ import copy
 import io
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 import zipfile
@@ -160,6 +161,27 @@ class AutomationTests(unittest.TestCase):
         with patch('release_automation.mutate', return_value={'workflow_run_id': 13}) as api:
             self.assertEqual(release_automation.dispatch_ci('owner/repo', 'main', 'merged'), 13)
         self.assertEqual(api.call_args.args[2]['inputs'], {'expected_sha': 'merged'})
+
+    def test_dispatched_ci_retries_a_transient_not_found(self):
+        delayed = subprocess.CompletedProcess([], 1, stderr='gh: Not Found (HTTP 404)')
+        visible = subprocess.CompletedProcess([], 0, stderr='')
+        with patch('release_automation.subprocess.run', side_effect=[delayed, visible]) as run, \
+             patch('release_automation.time.sleep') as sleep:
+            release_automation.wait_for_ci_visibility('owner/repo', 13)
+        self.assertEqual(run.call_count, 2)
+        self.assertIn('repos/owner/repo/actions/runs/13?exclude_pull_requests=true', run.call_args.args[0])
+        sleep.assert_called_once_with(5)
+
+    def test_dispatched_ci_stops_on_persistent_not_found_or_forbidden(self):
+        for status, requests in ((404, 7), (403, 1)):
+            with self.subTest(status=status), \
+                 patch('release_automation.subprocess.run', return_value=subprocess.CompletedProcess(
+                     [], 1, stderr=f'gh: Request failed (HTTP {status})')) as run, \
+                 patch('release_automation.time.sleep') as sleep:
+                with self.assertRaisesRegex(RuntimeError, f'HTTP {status}'):
+                    release_automation.wait_for_ci_visibility('owner/repo', 13)
+                self.assertEqual(run.call_count, requests)
+                self.assertEqual(sleep.call_count, requests - 1)
 
     def test_operator_checks_original_and_rerun_actor_on_main(self):
         environment = {'GITHUB_REPOSITORY': 'owner/repo', 'GITHUB_REF': 'refs/heads/main',
