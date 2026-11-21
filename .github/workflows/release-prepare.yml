@@ -96,6 +96,8 @@ jobs:
           Path('/tmp/release-pr.md').write_text(
               f"Release {data['versionName']} (version code {data['versionCode']}).\n\n"
               "An admin or maintainer authorized this release by running Prepare release PR. "
+              "If GitHub shows **Approve workflows to run**, approve the PR workflow "
+              "so it can report the checks required by branch protection. "
               "Successful CI automatically merges this exact release commit and launches main CI "
               "to publish to closed testing. Production requires a separate manual run.\n\n"
               + notes + '\n')

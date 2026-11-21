@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 from release_gate import check, gh, maintainer, no_change_requests, successful_ci
@@ -28,6 +29,18 @@ def dispatch_ci(repo, branch, sha):
     check(isinstance(run_id, int) and run_id > 0, 'Expected a dispatched CI run ID')
     print(f'Android CI: https://github.com/{repo}/actions/runs/{run_id}', flush=True)
     return run_id
+
+
+def wait_for_ci_visibility(repo, run_id):
+    # GitHub can return a run ID before the endpoint used by gh run watch can read it.
+    command = ['gh', 'api', f'repos/{repo}/actions/runs/{run_id}?exclude_pull_requests=true', '--silent']
+    for attempt in range(7):
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode == 0:
+            return
+        if 'HTTP 404' not in result.stderr or attempt == 6:
+            raise RuntimeError(f'Cannot read dispatched CI run {run_id}: {result.stderr.strip()}')
+        time.sleep(5)
 
 
 def check_pr(repo, number, head, base, branch):
@@ -67,6 +80,7 @@ def main():
     if mode == 'ci':
         run_id = dispatch_ci(repo, branch, head)
         # Waiting happens on the Actions runner, with no release secrets or content writes.
+        wait_for_ci_visibility(repo, run_id)
         subprocess.run(['gh', 'run', 'watch', str(run_id), '--repo', repo,
                         '--exit-status', '--interval', '30'], check=True)
         successful_ci(repo, run_id, head, branch)
