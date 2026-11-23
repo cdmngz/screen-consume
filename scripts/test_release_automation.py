@@ -163,23 +163,30 @@ class AutomationTests(unittest.TestCase):
         self.assertEqual(api.call_args.args[2]['inputs'], {'expected_sha': 'merged'})
 
     def test_dispatched_ci_retries_a_transient_not_found(self):
-        delayed = subprocess.CompletedProcess([], 1, stderr='gh: Not Found (HTTP 404)')
-        visible = subprocess.CompletedProcess([], 0, stderr='')
-        with patch('release_automation.subprocess.run', side_effect=[delayed, visible]) as run, \
+        delayed_run = subprocess.CompletedProcess([], 1, stderr='gh: Not Found (HTTP 404)')
+        delayed_jobs = subprocess.CompletedProcess([], 1, stderr='failed to get jobs: HTTP 404: Not Found')
+        succeeded = subprocess.CompletedProcess([], 0, stderr='')
+        with patch('release_automation.subprocess.run',
+                   side_effect=[delayed_run, delayed_jobs, succeeded]) as run, \
              patch('release_automation.time.sleep') as sleep:
-            release_automation.wait_for_ci_visibility('owner/repo', 13)
-        self.assertEqual(run.call_count, 2)
-        self.assertIn('repos/owner/repo/actions/runs/13?exclude_pull_requests=true', run.call_args.args[0])
-        sleep.assert_called_once_with(5)
+            release_automation.watch_dispatched_ci('owner/repo', 13)
+        self.assertEqual(run.call_count, 3)
+        self.assertEqual(run.call_args.args[0],
+                         ['gh', 'run', 'watch', '13', '--repo', 'owner/repo',
+                          '--exit-status', '--interval', '30'])
+        self.assertEqual(sleep.call_count, 2)
 
-    def test_dispatched_ci_stops_on_persistent_not_found_or_forbidden(self):
-        for status, requests in ((404, 7), (403, 1)):
-            with self.subTest(status=status), \
+    def test_dispatched_ci_stops_on_persistent_404_forbidden_or_failed_ci(self):
+        for stderr, message, requests in (
+                ('failed to get jobs: HTTP 404: Not Found', 'HTTP 404', 7),
+                ('gh: Request failed (HTTP 403)', 'HTTP 403', 1),
+                ('', 'exited with status 1', 1)):
+            with self.subTest(message=message), \
                  patch('release_automation.subprocess.run', return_value=subprocess.CompletedProcess(
-                     [], 1, stderr=f'gh: Request failed (HTTP {status})')) as run, \
+                     [], 1, stderr=stderr)) as run, \
                  patch('release_automation.time.sleep') as sleep:
-                with self.assertRaisesRegex(RuntimeError, f'HTTP {status}'):
-                    release_automation.wait_for_ci_visibility('owner/repo', 13)
+                with self.assertRaisesRegex(RuntimeError, message):
+                    release_automation.watch_dispatched_ci('owner/repo', 13)
                 self.assertEqual(run.call_count, requests)
                 self.assertEqual(sleep.call_count, requests - 1)
 
