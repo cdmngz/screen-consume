@@ -69,6 +69,28 @@ def check_pr(repo, number, head, base, branch):
     return pr
 
 
+def wait_for_pr_checks(repo, number, head, base):
+    # The dispatched head CI can pass before GitHub accepts the PR's required checks.
+    url = f'https://github.com/{repo}/pull/{number}'
+    command = ['gh', 'pr', 'view', str(number), '--repo', repo,
+               '--json', 'state,headRefOid,mergeStateStatus']
+    print(f'Waiting for branch protection on {url}. '
+          'If shown on the PR, select “Approve workflows to run”.', flush=True)
+    deadline = time.monotonic() + 30 * 60
+    while True:
+        status = json.loads(subprocess.check_output(command))
+        check(status['state'] == 'OPEN' and status['headRefOid'] == head,
+              'Prepared release PR was changed or closed while waiting')
+        check(gh(f'repos/{repo}/git/ref/heads/main')['object']['sha'] == base,
+              'Main changed during release validation; close this PR and prepare a fresh release')
+        if status['mergeStateStatus'] == 'CLEAN':
+            return
+        remaining = deadline - time.monotonic()
+        check(remaining > 0, f"GitHub still reports {status['mergeStateStatus']} for {url}. "
+              'Check the PR and rerun failed jobs once merge requirements are met.')
+        time.sleep(min(15, remaining))
+
+
 def main():
     operator()
     mode = sys.argv[1]
@@ -99,6 +121,9 @@ def main():
             check(pr['merged_by']['login'] == 'github-actions[bot]', 'Unexpected release merger')
             sha = pr['merge_commit_sha']
         else:
+            wait_for_pr_checks(repo, number, head, base)
+            pr = check_pr(repo, number, head, base, branch)
+            check(not pr.get('merged'), 'Release PR was merged while waiting')
             result = mutate(f'repos/{repo}/pulls/{number}/merge', 'PUT',
                             {'sha': head, 'merge_method': 'squash'})
             check(result.get('merged') is True, 'GitHub did not merge the release PR')
