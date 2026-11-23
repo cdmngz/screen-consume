@@ -1,10 +1,10 @@
 {
-  "versionName": "1.7.3",
-  "versionCode": 12,
+  "versionName": "1.7.4",
+  "versionCode": 13,
   "bump": "patch",
   "notes": {
-    "en-US": "General updates and improvements.",
-    "es-ES": "Actualizaciones y mejoras generales.",
+    "en-US": "Bug fixes and improvements.",
+    "es-ES": "Correcciones de errores y mejoras.",
     "de-DE": "Fehlerbehebungen und Verbesserungen.",
     "fr-FR": "Corrections de bugs et améliorations.",
     "it-IT": "Correzioni di errori e miglioramenti.",
