@@ -117,7 +117,7 @@ def main():
         successful_ci(repo, ci_run_id, head, branch)
         # No --admin or bypass: GitHub enforces all existing main protections.
         if pr.get('merged'):
-            # Recover a failed artifact upload or dispatch without merging a second PR.
+            # Keep a rerun tied to the original bot merge.
             check(pr['merged_by']['login'] == 'github-actions[bot]', 'Unexpected release merger')
             sha = pr['merge_commit_sha']
         else:
@@ -131,13 +131,17 @@ def main():
         commit = gh(f'repos/{repo}/commits/{sha}')
         check(len(commit['parents']) == 1 and commit['parents'][0]['sha'] == base,
               'Merged release base does not match the authorized main')
-        Path('release-authorization.json').write_text(json.dumps({
-            'pr': number, 'head_sha': head, 'merge_sha': sha, 'base_sha': base,
-            'ci_run_id': ci_run_id, 'run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT'])}))
         with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
             output.write(f'sha={sha}\n')
     elif mode == 'main-ci':
-        dispatch_ci(repo, 'main', os.environ['MERGED_SHA'])
+        sha = os.environ['MERGED_SHA']
+        run_id = dispatch_ci(repo, 'main', sha)
+        watch_dispatched_ci(repo, run_id)
+        successful_ci(repo, run_id, sha, 'main')
+        Path('release-authorization.json').write_text(json.dumps({
+            'pr': int(os.environ['PREPARED_PR']), 'head_sha': head, 'merge_sha': sha,
+            'base_sha': os.environ['GITHUB_SHA'], 'ci_run_id': int(os.environ['PREPARED_CI_RUN_ID']),
+            'main_ci_run_id': run_id, 'run_attempt': int(os.environ['GITHUB_RUN_ATTEMPT'])}))
     else:
         raise ValueError('Unknown automation mode')
 

@@ -81,7 +81,7 @@ def read_authorization(repo, run_id):
         return json.loads(archive.read('release-authorization.json'))
 
 
-def authorized(pr, repo, sha):
+def authorized(pr, repo, sha, *, prepare_event=None):
     # Associated-PR listings omit merged_by; fetch the complete immutable merge evidence.
     pr = gh(f"repos/{repo}/pulls/{pr['number']}")
     check(pr.get('merged_at') and pr['merge_commit_sha'] == sha and pr['base']['ref'] == 'main'
@@ -91,6 +91,9 @@ def authorized(pr, repo, sha):
     check(match is not None, 'Expected a workflow-generated release branch')
     run_id = match.group(1)
     run = gh(f'repos/{repo}/actions/runs/{run_id}')
+    if prepare_event is not None:
+        check(run_id == str(prepare_event['id']) and run['run_attempt'] == prepare_event['run_attempt'],
+              'Release does not match the triggering preparation attempt')
     check(run['conclusion'] == 'success' and run['event'] == 'workflow_dispatch'
           and run['path'] == '.github/workflows/release-prepare.yml'
           and run['head_branch'] == 'main' and run['head_repository']['full_name'] == repo,
@@ -108,6 +111,10 @@ def authorized(pr, repo, sha):
           and pr['merged_by']['login'] == 'github-actions[bot]',
           'Expected a release created and merged by the authorized workflow')
     successful_ci(repo, receipt['ci_run_id'], receipt['head_sha'], pr['head']['ref'])
+    if prepare_event is not None or 'main_ci_run_id' in receipt:
+        main_ci_run_id = receipt.get('main_ci_run_id')
+        check(type(main_ci_run_id) is int and main_ci_run_id > 0, 'Missing merged release CI run ID')
+        successful_ci(repo, main_ci_run_id, sha, 'main')
     commit = gh(f'repos/{repo}/commits/{sha}')
     check(len(commit['parents']) == 1 and commit['parents'][0]['sha'] == receipt['base_sha'],
           'Release base changed after authorization')
@@ -124,12 +131,23 @@ def main():
         for login in {os.environ['GITHUB_ACTOR'], os.environ['GITHUB_TRIGGERING_ACTOR']}:
             maintainer(repo, login)
     event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+    prepare_event = None
     if sys.argv[1] == "closed":
         run = event["workflow_run"]
-        check(run["conclusion"] == "success" and run["event"] in {"push", "workflow_dispatch"}
+        check(run["conclusion"] == "success"
               and run["head_branch"] == "main" and run["head_repository"]["full_name"] == repo,
-              "Expected successful main CI")
-        sha = run["head_sha"]
+              "Expected a successful release workflow on main")
+        if run["name"] == "Prepare release PR":
+            check(run["event"] == "workflow_dispatch", "Expected a dispatched release preparation")
+            prepare_event = run
+            sha = read_authorization(repo, run["id"])["merge_sha"]
+            check(isinstance(sha, str) and re.fullmatch(r"[0-9a-f]{40}", sha),
+                  "Invalid merged release commit in authorization")
+        else:
+            # Previously triggered publication runs can still be retried.
+            check(run["name"] == "Android CI" and run["event"] in {"push", "workflow_dispatch"},
+                  "Expected successful main CI")
+            sha = run["head_sha"]
     else:
         run_id = os.environ["CLOSED_RUN_ID"]
         check(run_id.isdigit(), "Run ID must be numeric")
@@ -158,12 +176,12 @@ def main():
            and p["base"]["ref"] == "main" and p["head"]["repo"]
            and p["head"]["repo"]["full_name"] == repo
            and p["head"]["ref"].startswith("codex/release/")]
-    if sys.argv[1] == "closed" and not prs:
+    if sys.argv[1] == "closed" and prepare_event is None and not prs:
         with open(os.environ["GITHUB_OUTPUT"], "a") as out:
             out.write("release=false\n")
         return
     check(len(prs) == 1, "Expected one merged release PR")
-    authorized(prs[0], repo, sha)
+    authorized(prs[0], repo, sha, prepare_event=prepare_event)
     subprocess.run(["git", "merge-base", "--is-ancestor", sha, "origin/main"], check=True)
     subprocess.run(["git", "checkout", "--detach", sha], check=True)
     data = validate(json.loads(Path("release/current.json").read_text()),
