@@ -8,7 +8,7 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import release_automation
 import release_gate
@@ -41,6 +41,48 @@ class AuthorizationTests(unittest.TestCase):
 
     def test_authorized_dispatch_accepts_exact_generated_merge(self):
         self.authorize()
+
+    def test_automatic_publication_checks_both_ci_runs_on_the_exact_commits(self):
+        event = {'id': 12, 'run_attempt': 1}
+        receipt = dict(self.receipt, main_ci_run_id=14)
+        with patch('release_gate.gh', side_effect=[self.pr, self.run, {'parents': [{'sha': 'base'}]}]), \
+             patch('release_gate.maintainer'), patch('release_gate.no_change_requests'), \
+             patch('release_gate.read_authorization', return_value=receipt), \
+             patch('release_gate.successful_ci') as ci:
+            release_gate.authorized(self.pr, 'owner/repo', 'merged', prepare_event=event)
+        self.assertEqual(ci.call_args_list, [
+            call('owner/repo', 13, 'prepared', 'codex/release/1.7.2-12'),
+            call('owner/repo', 14, 'merged', 'main'),
+        ])
+
+    def test_automatic_publication_rejects_wrong_attempt_or_missing_main_ci(self):
+        for event, message in (({'id': 11, 'run_attempt': 1}, 'triggering preparation attempt'),
+                               ({'id': 12, 'run_attempt': 2}, 'triggering preparation attempt'),
+                               ({'id': 12, 'run_attempt': 1}, 'Missing merged release CI')):
+            with self.subTest(event=event), \
+                 patch('release_gate.gh', side_effect=[self.pr, self.run]), \
+                 patch('release_gate.maintainer'), patch('release_gate.no_change_requests'), \
+                 patch('release_gate.read_authorization', return_value=self.receipt), \
+                 patch('release_gate.successful_ci'), self.assertRaisesRegex(ValueError, message):
+                release_gate.authorized(self.pr, 'owner/repo', 'merged', prepare_event=event)
+
+    def test_closed_gate_uses_authorized_merge_instead_of_preparation_base(self):
+        sha = 'a' * 40
+        self.pr['merge_commit_sha'] = sha
+        run = dict(self.run, name='Prepare release PR', id=12)
+        with tempfile.TemporaryDirectory() as directory:
+            event = Path(directory) / 'event.json'
+            event.write_text(json.dumps({'workflow_run': run}))
+            with patch.dict(os.environ, {'GITHUB_REPOSITORY': 'owner/repo',
+                                         'GITHUB_EVENT_PATH': str(event), 'GITHUB_RUN_ATTEMPT': '1'}), \
+                 patch('sys.argv', ['release_gate.py', 'closed']), \
+                 patch('release_gate.read_authorization', return_value={'merge_sha': sha}), \
+                 patch('release_gate.gh_list', return_value=[self.pr]) as prs, \
+                 patch('release_gate.authorized', side_effect=ValueError('stop before checkout')) as gate, \
+                 self.assertRaisesRegex(ValueError, 'stop before checkout'):
+                release_gate.main()
+        prs.assert_called_once_with(f'repos/owner/repo/commits/{sha}/pulls?per_page=100')
+        gate.assert_called_once_with(self.pr, 'owner/repo', sha, prepare_event=run)
 
     def test_failed_non_main_fork_or_different_workflow_cannot_authorize(self):
         for key, value in [('conclusion', 'failure'), ('event', 'push'), ('head_branch', 'feature'),
@@ -236,7 +278,6 @@ class AutomationTests(unittest.TestCase):
                        'PREPARED_BRANCH': 'codex/release/1.7.2-12', 'PREPARED_PR': '7',
                        'PREPARED_CI_RUN_ID': '13'}
         with tempfile.TemporaryDirectory() as directory:
-            receipt = Path(directory) / 'receipt.json'
             output = Path(directory) / 'output'
             for merged in (False, True):
                 self.pr['merged'] = merged
@@ -249,10 +290,8 @@ class AutomationTests(unittest.TestCase):
                      patch('release_automation.successful_ci'), \
                      patch('release_automation.wait_for_pr_checks') as wait_for_checks, \
                      patch('release_automation.gh', return_value={'parents': [{'sha': 'base'}]}), \
-                     patch('release_automation.mutate', return_value={'merged': True, 'sha': 'merged'}) as api, \
-                     patch('release_automation.Path', return_value=receipt):
+                     patch('release_automation.mutate', return_value={'merged': True, 'sha': 'merged'}) as api:
                     release_automation.main()
-                self.assertEqual(json.loads(receipt.read_text())['merge_sha'], 'merged')
                 if merged:
                     wait_for_checks.assert_not_called()
                     api.assert_not_called()
@@ -262,6 +301,31 @@ class AutomationTests(unittest.TestCase):
                                                 {'sha': 'head', 'merge_method': 'squash'})
             self.assertEqual(output.read_text(), 'sha=merged\nsha=merged\n')
 
+    def test_main_ci_records_authorization_only_after_exact_ci_succeeds(self):
+        environment = {'GITHUB_REPOSITORY': 'owner/repo', 'GITHUB_SHA': 'base',
+                       'GITHUB_RUN_ATTEMPT': '2', 'PREPARED_SHA': 'head',
+                       'PREPARED_BRANCH': 'codex/release/1.7.2-12', 'PREPARED_PR': '7',
+                       'PREPARED_CI_RUN_ID': '13', 'MERGED_SHA': 'merged'}
+        with tempfile.TemporaryDirectory() as directory:
+            receipt = Path(directory) / 'receipt.json'
+            with patch.dict(os.environ, environment), \
+                 patch('sys.argv', ['release_automation.py', 'main-ci']), patch('release_automation.operator'), \
+                 patch('release_automation.dispatch_ci', return_value=14) as dispatch, \
+                 patch('release_automation.watch_dispatched_ci') as watch, \
+                 patch('release_automation.successful_ci', side_effect=ValueError('CI failed')) as validate, \
+                 patch('release_automation.Path', return_value=receipt):
+                with self.assertRaisesRegex(ValueError, 'CI failed'):
+                    release_automation.main()
+                self.assertFalse(receipt.exists())
+                validate.side_effect = None
+                release_automation.main()
+            self.assertEqual(dispatch.call_args, call('owner/repo', 'main', 'merged'))
+            self.assertEqual(watch.call_args, call('owner/repo', 14))
+            self.assertEqual(validate.call_args, call('owner/repo', 14, 'merged', 'main'))
+            self.assertEqual(json.loads(receipt.read_text()), {
+                'pr': 7, 'head_sha': 'head', 'merge_sha': 'merged', 'base_sha': 'base',
+                'ci_run_id': 13, 'main_ci_run_id': 14, 'run_attempt': 2,
+            })
 
 
 if __name__ == '__main__':
