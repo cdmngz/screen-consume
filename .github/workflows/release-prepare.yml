@@ -103,6 +103,11 @@ jobs:
               + notes + '\n')
           PY
           pr_url=$(gh pr create --base main --head "$branch" --title "Release $version" --body-file /tmp/release-pr.md)
+          {
+            echo "Release PR: $pr_url"
+            echo
+            echo 'If GitHub shows **Approve workflows to run** on the PR, approve it so branch protection can receive the required checks.'
+          } >> "$GITHUB_STEP_SUMMARY"
           echo "branch=$branch" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           echo "pr=${pr_url##*/}" >> "$GITHUB_OUTPUT"
@@ -134,7 +139,7 @@ jobs:
     name: Merge validated release and launch main CI
     needs: [prepare, validate]
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 35
     permissions:
       contents: write
       pull-requests: write

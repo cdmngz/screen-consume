@@ -193,6 +193,36 @@ class AutomationTests(unittest.TestCase):
              self.assertRaises(ValueError):
             release_automation.operator()
 
+    def test_waits_for_github_to_allow_merge(self):
+        pending = {'state': 'OPEN', 'headRefOid': 'head', 'mergeStateStatus': 'BLOCKED'}
+        ready = dict(pending, mergeStateStatus='CLEAN')
+        with patch('release_automation.subprocess.check_output',
+                   side_effect=[json.dumps(pending), json.dumps(ready)]) as view, \
+             patch('release_automation.gh', return_value={'object': {'sha': 'base'}}), \
+             patch('release_automation.time.sleep') as sleep:
+            release_automation.wait_for_pr_checks('owner/repo', 7, 'head', 'base')
+        self.assertEqual(view.call_count, 2)
+        sleep.assert_called_once_with(15)
+
+    def test_blocked_pr_times_out_without_merging(self):
+        pending = {'state': 'OPEN', 'headRefOid': 'head', 'mergeStateStatus': 'BLOCKED'}
+        with patch('release_automation.subprocess.check_output', return_value=json.dumps(pending)), \
+             patch('release_automation.gh', return_value={'object': {'sha': 'base'}}), \
+             patch('release_automation.time.monotonic', side_effect=[0, 1800]), \
+             self.assertRaisesRegex(ValueError, 'BLOCKED.*rerun failed jobs'):
+            release_automation.wait_for_pr_checks('owner/repo', 7, 'head', 'base')
+
+    def test_wait_rejects_changes_to_pr_or_main(self):
+        pending = {'state': 'OPEN', 'headRefOid': 'head', 'mergeStateStatus': 'CLEAN'}
+        for status, base in ((dict(pending, state='MERGED'), 'base'),
+                             (dict(pending, headRefOid='edited'), 'base'),
+                             (pending, 'new-main')):
+            with self.subTest(status=status, base=base), \
+                 patch('release_automation.subprocess.check_output', return_value=json.dumps(status)), \
+                 patch('release_automation.gh', return_value={'object': {'sha': base}}), \
+                 self.assertRaisesRegex(ValueError, 'changed'):
+                release_automation.wait_for_pr_checks('owner/repo', 7, 'head', 'base')
+
     def test_successful_merge_records_exact_sha_and_no_bypass(self):
         environment = {'GITHUB_REPOSITORY': 'owner/repo', 'GITHUB_SHA': 'base',
                        'GITHUB_RUN_ID': '12', 'GITHUB_RUN_ATTEMPT': '1', 'PREPARED_SHA': 'head',
@@ -210,14 +240,17 @@ class AutomationTests(unittest.TestCase):
                      patch('release_automation.operator'), \
                      patch('release_automation.check_pr', return_value=self.pr), \
                      patch('release_automation.successful_ci'), \
+                     patch('release_automation.wait_for_pr_checks') as wait_for_checks, \
                      patch('release_automation.gh', return_value={'parents': [{'sha': 'base'}]}), \
                      patch('release_automation.mutate', return_value={'merged': True, 'sha': 'merged'}) as api, \
                      patch('release_automation.Path', return_value=receipt):
                     release_automation.main()
                 self.assertEqual(json.loads(receipt.read_text())['merge_sha'], 'merged')
                 if merged:
+                    wait_for_checks.assert_not_called()
                     api.assert_not_called()
                 else:
+                    wait_for_checks.assert_called_once_with('owner/repo', 7, 'head', 'base')
                     api.assert_called_once_with('repos/owner/repo/pulls/7/merge', 'PUT',
                                                 {'sha': 'head', 'merge_method': 'squash'})
             self.assertEqual(output.read_text(), 'sha=merged\nsha=merged\n')
