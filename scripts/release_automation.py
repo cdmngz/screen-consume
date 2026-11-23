@@ -31,15 +31,17 @@ def dispatch_ci(repo, branch, sha):
     return run_id
 
 
-def wait_for_ci_visibility(repo, run_id):
-    # GitHub can return a run ID before the endpoint used by gh run watch can read it.
-    command = ['gh', 'api', f'repos/{repo}/actions/runs/{run_id}?exclude_pull_requests=true', '--silent']
+def watch_dispatched_ci(repo, run_id):
+    # GitHub can expose the run before its jobs are available to the watcher.
+    command = ['gh', 'run', 'watch', str(run_id), '--repo', repo,
+               '--exit-status', '--interval', '30']
     for attempt in range(7):
-        result = subprocess.run(command, capture_output=True, text=True)
+        result = subprocess.run(command, stderr=subprocess.PIPE, text=True)
         if result.returncode == 0:
             return
         if 'HTTP 404' not in result.stderr or attempt == 6:
-            raise RuntimeError(f'Cannot read dispatched CI run {run_id}: {result.stderr.strip()}')
+            detail = result.stderr.strip() or f'gh run watch exited with status {result.returncode}'
+            raise RuntimeError(f'Dispatched CI run {run_id} did not succeed: {detail}')
         time.sleep(5)
 
 
@@ -102,9 +104,7 @@ def main():
     if mode == 'ci':
         run_id = dispatch_ci(repo, branch, head)
         # Waiting happens on the Actions runner, with no release secrets or content writes.
-        wait_for_ci_visibility(repo, run_id)
-        subprocess.run(['gh', 'run', 'watch', str(run_id), '--repo', repo,
-                        '--exit-status', '--interval', '30'], check=True)
+        watch_dispatched_ci(repo, run_id)
         successful_ci(repo, run_id, head, branch)
         with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
             output.write(f'ci_run_id={run_id}\n')
